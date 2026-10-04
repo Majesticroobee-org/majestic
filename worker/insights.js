@@ -623,7 +623,9 @@ export async function followUps(env, { days = 30, scope = null, limit = 100 } = 
 
   // Sign-ups carry no city, so a store-bound manager doesn't see them.
   const signups = city ? [] : (await db.prepare(
-    `SELECT l.email, l.source, l.created_at AS at, c.name AS name, c.phone AS phone
+    `SELECT l.email, l.source, l.created_at AS at,
+            COALESCE(NULLIF(l.name, ''), c.name) AS name, COALESCE(NULLIF(l.phone, ''), c.phone) AS phone,
+            l.marketing_opt_in AS opt_in, l.perk, l.perk_order_no
        FROM leads l LEFT JOIN customers c ON lower(c.email) = lower(l.email)
       WHERE l.created_at >= datetime('now', ?)
       ORDER BY l.created_at DESC LIMIT ?`
@@ -643,7 +645,12 @@ export async function followUps(env, { days = 30, scope = null, limit = 100 } = 
       name: "", phone: isEmail(r.contact) ? "" : r.contact, email: isEmail(r.contact) ? r.contact : "",
       city: r.city || "", value: 0, note: `${r.product || "A product"}${r.size ? ` ${r.size}` : ""}`, at: r.at,
     })),
-    signups: signups.map((r) => ({ name: r.name || "", phone: r.phone || "", email: r.email, city: "", value: 0, note: r.source, at: r.at })),
+    // Where they signed up, whether they said yes to emails, and whether
+    // their sign-up gift is still waiting or went out with an order.
+    signups: signups.map((r) => ({
+      name: r.name || "", phone: r.phone || "", email: r.email, city: "", value: 0, at: r.at,
+      note: [r.source, r.opt_in === 0 ? "no emails" : "emails OK", r.perk ? (r.perk_order_no ? `gift sent with ${r.perk_order_no}` : "gift waiting") : ""].filter(Boolean).join(" · "),
+    })),
     buyers: buyers.map((r) => ({ name: r.name, phone: r.phone, email: r.email, city: r.city, value: r.value, note: `Order ${r.no}${r.pay_status === "paid" ? " · paid" : ""}`, at: r.at })),
   };
 }

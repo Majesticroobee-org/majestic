@@ -75,8 +75,6 @@ export default function App() {
   const [chat, setChat] = useState({ open: false, val: "", inquiryId: null, key: null, msgs: [{ from: "us", text: "Hi! How can we help you today?" }] });
   const [popup, setPopup] = useState(false);
   const [nudge, setNudge] = useState(false);
-  const [plEmail, setPlEmail] = useState("");
-  const [plDone, setPlDone] = useState(false);
   const [custToken, setCustToken] = useState(() => localStorage.getItem("mr-cust-token") || "");
   const [cust, setCust] = useState(null);
   // Present only when the shopper arrived from a password-reset email.
@@ -355,7 +353,7 @@ export default function App() {
   const loadCust = useCallback(() => {
     if (!custToken) { setCust(null); return; }
     api.get("/api/account/me", custToken)
-      .then((d) => { setCust(d.customer); setCustData({ addresses: d.addresses, wishlist: d.wishlist, orders: d.orders }); })
+      .then((d) => { setCust(d.customer); setCustData({ addresses: d.addresses, wishlist: d.wishlist, orders: d.orders, rewards: d.rewards || [], perk: d.perk || null }); })
       .catch((e) => { if (e.status === 401) { localStorage.removeItem("mr-cust-token"); setCustToken(""); setCust(null); } });
   }, [custToken]);
   useEffect(() => { loadCust(); }, [loadCust]);
@@ -1024,13 +1022,14 @@ export default function App() {
     setContactSent(true);
   }, [cf, cityName]);
 
-  const submitLead = useCallback(async () => {
-    if (!plEmail.includes("@")) return;
+  // The sign-up pop-up (signup-offer.jsx): name, email, phone and email consent
+  // onto the list, which earns the gift on the next order. Once someone has
+  // signed up the pop-up never comes back.
+  const joinOffer = useCallback(async (payload) => {
+    await api.post("/api/leads", { ...payload, source: "popup" });
     try { localStorage.setItem("mr-popup-seen", "1"); } catch {}
-    setPlDone(true);
-    api.post("/api/leads", { email: plEmail, source: "popup" }).catch(() => {});
-  }, [plEmail]);
-
+    mrRecord("signup", {});
+  }, []);
   // The same list the pop-up feeds, joined from anywhere else on the store —
   // the newsletter block on the homepage today. The source is recorded so the
   // house can see which one people actually use.
@@ -1088,7 +1087,7 @@ export default function App() {
     track, setTrack, doTrack,
     cf, setCf, contactSent, sendContact,
     chat, setChat, sendChat,
-    popup, setPopup, plEmail, setPlEmail, plDone, submitLead,
+    popup, setPopup, joinOffer,
     nudge, dismissNudge: () => { setNudge(false); try { localStorage.setItem("mr-nudge-at", String(Date.now())); } catch {} },
     takeNudge: () => {
       setNudge(false);

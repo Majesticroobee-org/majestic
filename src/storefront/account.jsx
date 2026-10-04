@@ -134,6 +134,18 @@ function Dashboard({ ctx }) {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* The sign-up gift: two free perfumes, waiting for the next order or
+              already packed with one (worker/signup.js). */}
+          {custData.perk && (
+            <div style={{ ...card, background: custData.perk.used ? "var(--surface-card)" : "var(--mr-gold-200)", borderColor: custData.perk.used ? "var(--border-hairline)" : "var(--mr-gold-400)" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)", marginBottom: 6 }}>Your sign-up gift</div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.55, color: "var(--text-body)" }}>
+                {custData.perk.used
+                  ? <>Your {custData.perk.perk} came with order <strong style={{ fontWeight: 600 }}>{custData.perk.orderNo}</strong>.</>
+                  : <><strong style={{ fontWeight: 600 }}>{custData.perk.perk.charAt(0).toUpperCase() + custData.perk.perk.slice(1)}</strong> will be added to your next order automatically.</>}
+              </div>
+            </div>
+          )}
           {/* Reward codes. Matched on the email and phone this account carries,
               so a code earned as a guest is here the moment that guest
               registers with the same address. */}

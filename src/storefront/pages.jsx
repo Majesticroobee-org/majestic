@@ -440,7 +440,7 @@ function HomeBlock({ block, ctx, vars, runningDeal, perk, iconStyle, categories,
             <div>
               {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
               <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(26px, 3vw, 36px)", color: "var(--text-strong)", letterSpacing: "var(--ls-heading)", margin: eyebrow ? "10px 0 0" : 0 }}>
-                {title || settings.reviewsHeadline || "Don't just take our word for it"}
+                {title || settings.reviewsHeadline || "Reviews"}
               </h2>
             </div>
             <BlockLink ctx={ctx} block={block} />
@@ -533,7 +533,7 @@ function StoryBlock({ ctx, block, eyebrow, title, settings }) {
           </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             {about.story.length > 1 && (
-              <Button variant="secondary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? "Show Less" : block.ctaLabel || "Read Her Full Story"}</Button>
+              <Button variant="secondary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? "Show Less" : block.ctaLabel || "Read the full story"}</Button>
             )}
           </div>
         </div>
@@ -1307,6 +1307,13 @@ export function ConfirmPage({ ctx }) {
           </div>
         )}
       </div>
+
+      {p.gift && (
+        <div style={{ marginTop: 18, display: "flex", gap: 12, alignItems: "center", background: "var(--mr-gold-200)", border: "1px solid var(--mr-gold-400)", borderRadius: "var(--radius-md)", padding: "14px 18px", fontSize: 14, lineHeight: 1.5, color: "var(--mr-purple-900)" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}><rect x="3" y="8" width="18" height="13" rx="1" /><path d="M12 8v13M3 12h18M12 8S10 3 7.5 3a2.5 2.5 0 0 0 0 5M12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5" /></svg>
+          <span><strong style={{ fontWeight: 600 }}>{p.gift.replace(/^Sign-up gift: /, "Your sign-up gift — ")}</strong> is included with this order.</span>
+        </div>
+      )}
 
       {awaitingCard && (
         <div style={{ marginTop: 18 }}>

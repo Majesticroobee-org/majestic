@@ -277,7 +277,7 @@ function MobileBlock({ block, ctx, vars, runningDeal }) {
       if (!ctx.testimonials.length) return null;
       return (
         <section style={{ paddingTop: GAP }}>
-          <HeadM eyebrow={eyebrow} title={title || settings.reviewsHeadline || "Customer Reviews"} action={block.ctaLabel} onAction={go} />
+          <HeadM eyebrow={eyebrow} title={title || settings.reviewsHeadline || "Reviews"} action={block.ctaLabel} onAction={go} />
           <Rail width={260}>{ctx.testimonials.slice(0, 9).map((t) => <EmbedCard key={t.id} t={t} />)}</Rail>
         </section>
       );
@@ -335,7 +335,7 @@ function MobileStory({ ctx, block, eyebrow, title }) {
         ))}
         {about.story.length > 1 && (
           <button onClick={() => setOpen((o) => !o)} aria-expanded={open} style={{ ...linkBtn, padding: "14px 0 0", fontSize: 14 }}>
-            {open ? "Show Less" : block.ctaLabel || "Read Her Full Story"}
+            {open ? "Show Less" : block.ctaLabel || "Read the full story"}
           </button>
         )}
       </div>
@@ -441,7 +441,12 @@ const GENDER_LABEL = { Female: "Women", Male: "Men", Unisex: "Unisex" };
 
 export function MobileShop({ ctx }) {
   const L = useShopList(ctx, { mobile: true });
-  const { list, seg, segCopy, activeCat, trail, collection, brand, brandName, searching, runningDeals, scopedOut, listings, collections } = L;
+  const { list, seg, segCopy, activeCat, trail, collection, brand, brandName, searching, runningDeals, scopedOut, listings, collections, catIds } = L;
+  // A shelf chip only shows when the category being looked at has something on
+  // that shelf: Perfume Oils has no gift sets, so it offers no "Gift Sets" chip
+  // leading to an empty page.
+  const catOf = new Map(ctx.products.map((p) => [p.id, p.cat]));
+  const shelfHas = (id) => (ctx.segments[id] || []).some((pid) => !catIds || catIds.has(catOf.get(pid)));
   const [sheet, setSheet] = useState(null);
   const mf = ctx.mf;
   const setMf = (patch) => ctx.setMf((m) => ({ ...m, ...patch }));
@@ -500,7 +505,7 @@ export function MobileShop({ ctx }) {
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, lineHeight: 1.15, color: "var(--text-strong)", margin: eyebrow ? "4px 0 0" : 0, textWrap: "pretty" }}>{title}</h1>
         {desc && <p style={{ fontSize: 13, lineHeight: 1.5, margin: "6px 0 0", color: "var(--text-body)" }}>{desc}</p>}
       </div>
-      {chipRow(SEG_CHIPS.filter(([id]) => !id || id === seg || (ctx.segments[id] || []).length > 0)
+      {chipRow(SEG_CHIPS.filter(([id]) => !id || id === seg || shelfHas(id))
         .map(([id, label]) => ({ label, on: (seg || null) === id, pick: () => refine({ fSeg: id }) })))}
       {kids.length > 0 && chipRow([
         { label: `All ${parent.label.toLowerCase()}`, on: ctx.fCat === parent.id, pick: () => refine({ fCat: parent.id }) },

@@ -1,8 +1,9 @@
 // Storefront chrome: announcement bar, city gate, header, cart drawer,
 // concierge chat, lead popup, footer. Markup ported from the design handoff.
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Eyebrow, Button, ImageSlot } from "../ds/components.jsx";
+import { Button, ImageSlot } from "../ds/components.jsx";
 import { routeToPath } from "./router.js";
+import { SignupOffer } from "./signup-offer.jsx";
 import { footerColumns } from "./footer-links.js";
 import { useWindowWidth, useDismiss } from "../lib/hooks.js";
 import { catTree, catFamily, countIn } from "../lib/categories.js";
@@ -77,28 +78,16 @@ function CitySelect({ ctx, style }) {
   );
 }
 
+// The sign-up offer, as a box in the middle of a desktop screen. The phone
+// draws the same form in a sheet (mobile-chrome.jsx); the form itself is
+// signup-offer.jsx.
 function PromoPopup({ ctx }) {
   if (!ctx.popup) return null;
-  const content = ctx.D && ctx.D.popup ? ctx.D.popup : null;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(36,20,48,0.55)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={ctx.closePopup}>
-      <div style={{ background: "var(--surface-card)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)", maxWidth: 440, width: "100%", padding: "40px 36px", textAlign: "center", position: "relative" }} onClick={(e) => e.stopPropagation()}>
-        <button onClick={ctx.closePopup} style={{ position: "absolute", top: 14, right: 16, background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--text-muted)" }}>✕</button>
-        <Eyebrow>First order</Eyebrow>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 30, color: "var(--text-strong)", letterSpacing: "var(--ls-heading)", margin: "14px 0 8px" }}>{content ? content.title : "10% off your first order"}</h2>
-        <p style={{ fontSize: 14, lineHeight: "var(--lh-body)", margin: "0 0 20px" }}>{content ? content.message : "Enter your email and we'll send you the code."}</p>
-        {ctx.plDone ? (
-          <div style={{ background: "var(--surface-sunken)", borderRadius: "var(--radius-md)", padding: 16 }}>
-            <div style={{ fontFamily: "var(--font-condensed)", letterSpacing: "var(--ls-eyebrow)", textTransform: "uppercase", fontSize: 12, color: "var(--accent-gold-ink)" }}>Your code</div>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--mr-purple-900)", marginTop: 4 }}>FIRSTTRAIL</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>We've sent it to your inbox too.</div>
-          </div>
-        ) : (
-          <div style={{ display: "flex", gap: 10 }}>
-            <input value={ctx.plEmail} onChange={(e) => ctx.setPlEmail(e.target.value)} placeholder="you@email.com" style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: 14, padding: "12px 14px", border: "1px solid var(--border-hairline)", borderRadius: "var(--radius-md)", outline: "none", color: "var(--text-strong)", background: "var(--surface-card)" }} />
-            <Button variant="gold" onClick={ctx.submitLead}>Get my code</Button>
-          </div>
-        )}
+      <div role="dialog" aria-modal="true" aria-label="Sign-up offer" style={{ background: "var(--mr-cream)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)", maxWidth: 480, width: "100%", maxHeight: "92vh", overflowY: "auto", boxSizing: "border-box", padding: "40px 36px 30px", borderTop: "4px solid var(--accent-gold)", position: "relative" }} onClick={(e) => e.stopPropagation()}>
+        <button onClick={ctx.closePopup} aria-label="Close" style={{ position: "absolute", top: 12, right: 14, width: 40, height: 40, background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--text-muted)" }}>✕</button>
+        <SignupOffer ctx={ctx} onDone={ctx.closePopup} />
       </div>
     </div>
   );
@@ -123,9 +112,9 @@ function PromoPopup({ ctx }) {
 // a word in half.
 const NAV_TABS = [
   { label: "Home", page: "home" },
-  { label: "New arrivals", page: "shop", extra: { fSeg: "new-arrivals" } },
+  { label: "New Arrivals", page: "shop", extra: { fSeg: "new-arrivals" } },
   { label: "Deals", page: "shop", extra: { fSeg: "deals" }, hot: true },
-  { label: "Best sellers", page: "shop", extra: { fSeg: "best-sellers" } },
+  { label: "Best Sellers", page: "shop", extra: { fSeg: "best-sellers" } },
   // The blog takes the band's last tab. The house writes it weekly and it is
   // what brings people back; the story does not change and does not need a slot
   // at the top of every page. /about is still there — the menu below names it,
@@ -329,8 +318,8 @@ function CategoryRail({ ctx, pinned }) {
                   left out rather than offered as a road to an empty page. */}
               {(() => {
                 const shelves = [
-                  { seg: "best-sellers", label: "Best sellers" },
-                  { seg: "new-arrivals", label: "New arrivals" },
+                  { seg: "best-sellers", label: "Best Sellers" },
+                  { seg: "new-arrivals", label: "New Arrivals" },
                   { seg: "deals", label: "Deals" },
                 ].map((sh) => ({ ...sh, n: shelfCount(sh.seg, fly.id) })).filter((sh) => sh.n > 0);
                 if (!shelves.length) return null;

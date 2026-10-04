@@ -8,6 +8,7 @@
 // Money is handled in kobo (Paystack's smallest unit) from the moment it leaves
 // `orders.total` until it comes back, so there is no rounding step in the middle
 // where a naira figure and a kobo figure can drift apart.
+import { releaseSignupPerk } from "./signup.js";
 import { sendMetaPurchase } from "./meta.js";
 import { emitEvent } from "./events.js";
 import { issueEarnedReward } from "./rewards.js";
@@ -364,6 +365,8 @@ export async function releaseExpiredOrders(env) {
       }
     }
     await releaseStock(db, order.no);
+    // A sign-up gift this order was carrying waits for the next one.
+    await releaseSignupPerk(db, order.no);
     await db
       .prepare("UPDATE orders SET pay_status='expired', status='Cancelled' WHERE no=? AND pay_status='pending'")
       .bind(order.no)

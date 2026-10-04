@@ -3,6 +3,7 @@
 import { Hono } from "hono";
 import { issueToken, verifyToken, hashPassword, verifyPassword, displayDate, fmtNaira, sha256hex, normalizeContact, todayInWAT } from "./util.js";
 import { rewardOut } from "./rewards.js";
+import { perkOf } from "./signup.js";
 import { emitEvent, sendTransactional } from "./events.js";
 import { stitchVisitor } from "./insights.js";
 import { clientIp, loginBuckets, checkThrottle, recordFailure, clearFailures, lockedMessage } from "./ratelimit.js";
@@ -185,6 +186,8 @@ account.get("/me", async (c) => {
     wishlist,
     orders: orders.map((o) => ({ no: o.no, status: o.status, paid: o.pay_status === "paid", total: o.total, totalLabel: fmtNaira(o.total), placed: displayDate(new Date(o.placed_at.replace(" ", "T") + "Z")) })),
     rewards: await ownRewards(db, u),
+    // The sign-up gift, waiting for their next order or already on one.
+    perk: await perkOf(db, u.email),
   });
 });
 

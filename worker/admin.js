@@ -21,6 +21,7 @@ import { clamp as clampText, PREVIEW_MAX, TITLE_MAX } from "../src/lib/blog.js";
 import { erpStatus, erpPing, erpProbe, erpReadSpec, erpPull, erpSyncWarehouses, erpSyncItemGroups } from "./erp.js";
 import { emailConfig, sendEmail } from "./email.js";
 import { mountAdminReviews } from "./reviews.js";
+import { releaseSignupPerk } from "./signup.js";
 
 const randHex = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -316,6 +317,8 @@ admin.get("/overview", async (c) => {
       source: channelOf(o), campaign: o.src_campaign || "",
       status: o.status, total: o.total, placed: displayDate(new Date(o.placed_at.replace(" ", "T") + "Z")),
       parcels: parcelRows.filter((p) => p.order_no === o.no).map((p) => p.city || p.location_id),
+      // "Sign-up gift: 2 free perfumes" — something to put in the bag.
+      gift: o.gift_note || "",
     })),
     abandoned: abandoned.map((a) => ({
       name: a.name, phone: a.phone, email: a.email, city: a.city, value: a.value_ngn, stage: a.stage, time: relTime(a.updated_at),
@@ -1007,6 +1010,8 @@ admin.patch("/orders/:no", async (c) => {
   await db.prepare("UPDATE orders SET status=? WHERE no=?").bind(status, no).run();
   // The first time it reaches the shopper is when the review email's clock
   // starts (worker/reviews.js).
+  // A cancelled order hands its sign-up gift back for the shopper's next one.
+  if (status === "Cancelled") await releaseSignupPerk(db, no);
   if (status === "Delivered" || status === "Collected") {
     await db.prepare("UPDATE orders SET delivered_at = COALESCE(delivered_at, datetime('now')) WHERE no=?").bind(no).run();
   }
@@ -1097,6 +1102,8 @@ admin.put("/settings", async (c) => {
     // Product ratings (worker/reviews.js): whether stars show at all, whether
     // written reviews wait for approval, and when buyers are asked.
     "reviewsOn", "reviewsModerate", "reviewRequestDays", "reviewFallbackDays", "reviewMaxAgeDays",
+    // The sign-up pop-up's gift — what it is called, and whether it is offered.
+    "signupPerk", "signupPerkOn",
     // The ERP link. The credentials are Worker secrets and are not here; these
     // are the settings that say which ERP, where it is, how to read it, and
     // how brave the connector is allowed to be. Which ERP is a *setting*
