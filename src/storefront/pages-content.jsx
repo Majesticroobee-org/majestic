@@ -347,7 +347,7 @@ export function ReviewsPage({ ctx }) {
     <main style={shellStyle}>
       <PageHead
         eyebrow="Reviews"
-        title={settings.reviewsHeadline || "Don't just take our word for it"}
+        title={settings.reviewsHeadline || "Reviews"}
         sub={settings.reviewsIntro || "What our customers say, in their own words and their own posts."}
       />
       {kinds.length > 1 && (

@@ -7,6 +7,7 @@ import { loadHomeBlocks, resolveHomeBlocks } from "./home.js";
 import { ingest, stitchVisitor } from "./insights.js";
 import { loadAffinity } from "./affinity.js";
 import { loadRatings } from "./reviews.js";
+import { joinList, perkFor, applySignupPerk, releaseSignupPerk } from "./signup.js";
 import { planFulfilment } from "./fulfilment.js";
 import { previewOf, plain, readingMinutes } from "../src/lib/blog.js";
 import { emitEvent } from "./events.js";
@@ -339,14 +340,28 @@ shop.get("/social-proof", async (c) => {
   });
 });
 
+// Joining the list: the sign-up pop-up (name, email, phone, email consent —
+// and the sign-up gift on the next order) or the newsletter box (email only).
+// See worker/signup.js.
 shop.post("/leads", async (c) => {
-  const { email, source } = await c.req.json();
-  if (!email || !String(email).includes("@")) return c.json({ error: "A valid email is required." }, 400);
-  await c.env.DB
-    .prepare("INSERT INTO leads (email, source) VALUES (?, ?) ON CONFLICT(email) DO NOTHING")
-    .bind(String(email).trim().toLowerCase(), source || "popup")
-    .run();
-  return c.json({ ok: true, code: "FIRSTTRAIL" });
+  const b = await c.req.json().catch(() => ({}));
+  const db = c.env.DB;
+  const source = String(b.source || "popup").slice(0, 40);
+  const offer = source === "popup";
+  if (offer && !String(b.name || "").trim()) return c.json({ error: "Enter your name." }, 400);
+  const settings = await getSettings(db);
+  const r = await joinList(db, {
+    email: b.email, name: b.name, phone: b.phone, source,
+    // The newsletter box is an explicit "send me emails"; the pop-up asks.
+    optIn: offer ? !!b.marketingOptIn : true,
+    perk: offer ? perkFor(settings) : "",
+  });
+  if (!r.ok) return c.json({ error: r.error }, 400);
+  // Someone with an account who says yes to emails here has said yes there too.
+  if (offer && b.marketingOptIn) {
+    await db.prepare("UPDATE customers SET marketing_opt_in=1 WHERE email=?").bind(String(b.email).trim().toLowerCase()).run();
+  }
+  return c.json({ ok: true, perk: r.perk });
 });
 
 // One code box on the checkout page, two tables behind it.
@@ -534,10 +549,15 @@ shop.post("/waitlist", async (c) => {
   return c.json({ ok: true });
 });
 
+// Numbered from the highest numeric order so far. An order number that isn't
+// a number (a hand-entered or imported one) is stepped over rather than read
+// as NaN — which would make every checkout after it collide on "MR-NaN".
 async function nextOrderNo(db) {
-  const row = await db.prepare("SELECT no FROM orders ORDER BY CAST(substr(no, 4) AS INTEGER) DESC LIMIT 1").first();
-  const n = row ? parseInt(row.no.slice(3), 10) + 1 : 10001;
-  return "MR-" + n;
+  const row = await db.prepare(
+    "SELECT no FROM orders WHERE substr(no, 4) GLOB '[0-9]*' AND substr(no, 4) NOT GLOB '*[^0-9]*' ORDER BY CAST(substr(no, 4) AS INTEGER) DESC LIMIT 1"
+  ).first();
+  const last = row ? parseInt(row.no.slice(3), 10) : NaN;
+  return "MR-" + (Number.isFinite(last) ? last + 1 : 10001);
 }
 
 // Resolve cart items against the live catalogue. Returns { lines } or { error }.
@@ -784,6 +804,9 @@ shop.post("/orders", async (c) => {
     throw e;
   }
 
+  // A sign-up gift waiting for this buyer rides on this order (worker/signup.js).
+  const gift = await applySignupPerk(db, { no, email: customer.email, phone: customer.phone });
+
   // An order is an identification too: a guest who has never signed in still
   // just told the shop who they are. Their earlier visits are attached to that
   // record, which is what makes "how many times did they look before they
@@ -814,6 +837,8 @@ shop.post("/orders", async (c) => {
       ? "Ready in about 3 hours"
       : [...new Set(plan.shipments.map((s) => s.eta))].join(" · "),
     parcels: plan.shipments.length,
+    // "Sign-up gift: 2 free perfumes", when this order carries one.
+    gift,
   };
 
   // A transfer or WhatsApp order is the purchase, so Meta hears about it now; a
@@ -830,6 +855,7 @@ shop.post("/orders", async (c) => {
     no, total, email: (customer.email || "").trim(), customer: customer.name.trim(), phone: customer.phone.trim(),
   }, new URL(c.req.url).origin);
   if (init.error) {
+    await releaseSignupPerk(db, no);
     await db.batch([
       db.prepare("UPDATE orders SET pay_status='failed', status='Cancelled', stock_released=1 WHERE no=?").bind(no),
       ...lines.map((l) =>

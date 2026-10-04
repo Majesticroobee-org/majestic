@@ -19,7 +19,8 @@ import { catTree, countIn } from "../lib/categories.js";
 import { ImageSlot } from "../ds/components.jsx";
 import { AnnouncementBar, ConsentBanner, LeaveNudge, ChatWidget, PurchaseProof } from "./chrome.jsx";
 import { footerColumns } from "./footer-links.js";
-import { I, BtnM, Sheet, Radio, Stepper, FreeShipBar, chipTone, eyebrowM, fieldM } from "./mobile-ui.jsx";
+import { SignupOffer } from "./signup-offer.jsx";
+import { I, BtnM, Sheet, Radio, Stepper, FreeShipBar, chipTone, eyebrowM } from "./mobile-ui.jsx";
 
 const LOGO = { dark: "/logo.png", light: "/logo-light.png" };
 
@@ -505,29 +506,15 @@ function ChatSheet({ ctx, close }) {
   );
 }
 
-// The first-order offer, as a sheet from the bottom rather than a box in the
-// middle of a small screen.
+// The sign-up offer, as a sheet from the bottom rather than a box in the
+// middle of a small screen. The form is signup-offer.jsx, shared with the
+// desktop.
 function PromoSheet({ ctx }) {
-  const content = ctx.D && ctx.D.popup ? ctx.D.popup : null;
   return (
-    <Sheet onClose={ctx.closePopup} z={210} bg="var(--surface-card)" pad="0 22px" label="First-order offer">
-      <div style={{ position: "relative", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, paddingTop: 18 }}>
-        <button onClick={ctx.closePopup} aria-label="Close" style={{ ...iconBtn, position: "absolute", top: -10, right: -14, color: "var(--text-muted)" }}>{I.close(18)}</button>
-        <div style={eyebrowM}>First order</div>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 27, color: "var(--text-strong)", letterSpacing: "var(--ls-heading)", margin: 0 }}>{content ? content.title : "10% off your first order"}</h2>
-        <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 6px", color: "var(--text-body)" }}>{content ? content.message : "Enter your email and we'll send you the code."}</p>
-        {ctx.plDone ? (
-          <div style={{ width: "100%", background: "var(--surface-sunken)", borderRadius: "var(--radius-md)", padding: 16 }}>
-            <div style={{ ...eyebrowM, fontSize: 12 }}>Your code</div>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--mr-purple-900)", marginTop: 4 }}>FIRSTTRAIL</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>We&apos;ve sent it to your inbox too.</div>
-          </div>
-        ) : (
-          <form onSubmit={(e) => { e.preventDefault(); ctx.submitLead(); }} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
-            <input type="email" autoComplete="email" value={ctx.plEmail} onChange={(e) => ctx.setPlEmail(e.target.value)} placeholder="you@email.com" aria-label="Your email address" style={{ ...fieldM, background: "var(--mr-cream)" }} />
-            <BtnM type="submit" variant="gold" size="lg" block>Get My Code</BtnM>
-          </form>
-        )}
+    <Sheet onClose={ctx.closePopup} z={210} bg="var(--mr-cream)" pad="0 22px" label="Sign-up offer">
+      <div style={{ position: "relative", paddingTop: 18 }}>
+        <button onClick={ctx.closePopup} aria-label="Close" style={{ ...iconBtn, position: "absolute", top: -10, right: -14, color: "var(--text-muted)" }}>{I.close(20)}</button>
+        <SignupOffer ctx={ctx} mobile onDone={ctx.closePopup} />
       </div>
     </Sheet>
   );
