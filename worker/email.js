@@ -68,7 +68,16 @@ export function renderEmail({ subject, text, brand = {} }) {
   const logo = /^https?:\/\//.test(own) ? own : site ? `${site}${own.startsWith("/") ? own : "/logo-light.png"}` : "";
   const paras = String(text || "").replace(/\r\n?/g, "\n").split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   const body = paras.map((p) => {
-    const cta = /^(.{2,60}?):\s*(https?:\/\/\S+)$/.exec(p);
+    // "★ Osk 30ml: https://…/review/…" is an item to rate: its name over five
+    // stars, each a link that opens the review page with that many chosen. One
+    // tap from the inbox is what gets a rating back.
+    const stars = /^★\s*(.{1,120}?):\s*(https?:\/\/\S+)$/.exec(p);
+    if (stars) {
+      const link = (n) => `${stars[2]}${stars[2].includes("?") ? "&" : "?"}r=${n}`;
+      const row = [1, 2, 3, 4, 5].map((n) => `<a href="${esc(link(n))}" title="${n} star${n > 1 ? "s" : ""}" style="font-size:32px;line-height:1;color:#d6b26a;text-decoration:none;padding:0 3px">&#9733;</a>`).join("");
+      return `<tr><td style="padding:0 0 18px"><div style="font-size:15px;font-weight:700;color:#241430;padding:0 0 6px">${esc(stars[1])}</div><div>${row}</div></td></tr>`;
+    }
+    const cta =/^(.{2,60}?):\s*(https?:\/\/\S+)$/.exec(p);
     if (cta) {
       return `<tr><td style="padding:8px 0 18px"><a href="${esc(cta[2])}" style="display:inline-block;background:#d6b26a;color:#241430;font-weight:700;font-size:15px;text-decoration:none;padding:13px 24px;border-radius:6px">${esc(cta[1])}</a></td></tr>`;
     }

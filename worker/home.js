@@ -56,12 +56,13 @@ export const SOURCES = ["segment", "category", "collection", "in-city", "manual"
  * are marked down, which is not a thin shelf, it is a false one. Same for gift
  * sets, which would otherwise offer single bottles as sets, and for "ready at
  * your store", which would name things the shopper cannot walk in and collect.
+ * "Top rated" is the same kind of claim: a bottle nobody has rated is not one.
  *
  * worker/merch.js draws this line for the same two segments, and for the same
  * reason; it is drawn again here because a block can point at a segment the
  * home page never used to show.
  */
-export const CLAIM_SEGMENTS = new Set(["deals", "gift-sets"]);
+export const CLAIM_SEGMENTS = new Set(["deals", "gift-sets", "top-rated"]);
 
 /**
  * Resolve one block to an ordered list of product ids.

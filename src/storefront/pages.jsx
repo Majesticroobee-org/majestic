@@ -6,10 +6,12 @@ import { routeToPath } from "./router.js";
 import { EmbedCard, TestimonialCarousel, PostBody, PostCard } from "./pages-content.jsx";
 import { DailyDealCard } from "./daily-deal.jsx";
 import { countIn } from "../lib/categories.js";
-import { aboutContent } from "../lib/about.js";
+import { aboutContent, FOUNDER_HEADING } from "../lib/about.js";
 import { variantGallery } from "../lib/gallery.js";
 import { fill, cardsFor, shelfCards, blockNav, blockCategories, HERO_PANEL, HERO_TEXT_SHADOW } from "./blocks.js";
 import { useShopList, SHOP_TITLE, PRICE_BANDS } from "./shop-list.js";
+import { RatingLine } from "./stars.jsx";
+import { ProductReviews } from "./reviews.jsx";
 
 export { ProductCard };
 export { WishlistPage, LocationsPage, ReviewsPage, BlogPage, BlogPostPage, PostBody, FaqPage, ConsultationPage } from "./pages-content.jsx";
@@ -223,7 +225,7 @@ export function HomePage({ ctx }) {
                   <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(30px, 3.4vw, 46px)", lineHeight: "var(--lh-tight)", letterSpacing: "var(--ls-display)", color: "var(--mr-cream)", margin: 0, maxWidth: "20ch", whiteSpace: "pre-line", textShadow: HERO_TEXT_SHADOW }}>{settings.heroHeadline}</h1>
                   {settings.heroSub && <p style={{ fontFamily: "var(--font-serif)", fontSize: "clamp(16px, 1.5vw, 19px)", lineHeight: 1.5, color: "var(--mr-cream)", maxWidth: "36ch", margin: 0, textShadow: HERO_TEXT_SHADOW }}>{settings.heroSub}</p>}
                   <div style={{ display: "flex", pointerEvents: "auto", marginTop: 4 }}>
-                    <Button variant="gold" size="lg" onClick={() => ctx.nav("shop")}>Shop fragrances</Button>
+                    <Button variant="gold" size="lg" onClick={() => ctx.nav("shop")}>Shop Now</Button>
                   </div>
                 </div>
               </div>
@@ -260,7 +262,7 @@ export function HomePage({ ctx }) {
             <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(38px, 5.4vw, 64px)", lineHeight: "var(--lh-tight)", letterSpacing: "var(--ls-display)", color: "var(--text-strong)", margin: "18px 0 0", whiteSpace: "pre-line" }}>{settings.heroHeadline}</h1>
             <p style={{ fontFamily: "var(--font-serif)", fontSize: "clamp(19px, 2vw, 23px)", lineHeight: 1.5, color: "var(--text-body)", maxWidth: "46ch", margin: "22px 0 30px" }}>{settings.heroSub}</p>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-              <Button variant="primary" size="lg" onClick={() => ctx.nav("shop")}>Shop fragrances</Button>
+              <Button variant="primary" size="lg" onClick={() => ctx.nav("shop")}>Shop Now</Button>
             </div>
           </div>
           <div style={{ position: "relative", minHeight: 380 }}>
@@ -276,7 +278,7 @@ export function HomePage({ ctx }) {
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(40px, 6.4vw, 84px)", lineHeight: "var(--lh-tight)", letterSpacing: "var(--ls-display)", color: "var(--mr-cream)", margin: "22px auto 0", maxWidth: "18ch", whiteSpace: "pre-line" }}>{settings.heroHeadline}</h1>
           <GildedRule width="220px" style={{ margin: "18px auto" }} />
           <p style={{ fontFamily: "var(--font-serif)", fontSize: "clamp(18px, 2vw, 22px)", color: "var(--text-on-dark-muted)", maxWidth: "52ch", margin: "0 auto 34px" }}>{settings.heroSub}</p>
-          <Button variant="gold" size="lg" onClick={() => ctx.nav("shop")}>Shop fragrances</Button>
+          <Button variant="gold" size="lg" onClick={() => ctx.nav("shop")}>Shop Now</Button>
         </section>
       )}
       {dir === "product-led" && (
@@ -324,19 +326,19 @@ function HomeBlock({ block, ctx, vars, runningDeal, perk, iconStyle, categories,
     case "perks":
       return (
         <section style={{ maxWidth: 1280, margin: "0 auto", padding: `clamp(28px, 4vw, 44px) ${PAD} 8px` }}>
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(22px, 2.4vw, 28px)", color: "var(--text-strong)", letterSpacing: "var(--ls-heading)", margin: "0 0 14px" }}>{title || "What we offer"}</h2>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(22px, 2.4vw, 28px)", color: "var(--text-strong)", letterSpacing: "var(--ls-heading)", margin: "0 0 14px" }}>{title || "Why Shop With Us"}</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(230px, 100%), 1fr))", gap: 14 }}>
             {perk(
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold-ink)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>,
-              "Fast delivery", "From your nearest store"
+              "Fast Delivery", "From your nearest store"
             )}
             {perk(
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold-ink)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>,
-              "Secure payment", "Card or bank transfer"
+              "Secure Checkout", "Card, transfer or USSD"
             )}
             {perk(
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold-ink)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></svg>,
-              "Worldwide delivery", "Pay in ₦ or $"
+              "Worldwide Delivery", "Pay in ₦ or $"
             )}
           </div>
         </section>
@@ -521,7 +523,8 @@ function StoryBlock({ ctx, block, eyebrow, title, settings }) {
         </div>
         <div>
           {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(24px, 3vw, 34px)", color: "var(--text-strong)", letterSpacing: "var(--ls-heading)", margin: eyebrow ? "10px 0 16px" : "0 0 16px", maxWidth: "22ch" }}>{title || about.storyTitle}</h2>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(24px, 3vw, 34px)", color: "var(--text-strong)", letterSpacing: "var(--ls-heading)", margin: eyebrow ? "10px 0 10px" : "0 0 10px" }}>{title || FOUNDER_HEADING}</h2>
+          <div style={{ fontFamily: "var(--font-serif)", fontSize: "clamp(18px, 1.8vw, 21px)", fontStyle: "italic", color: "var(--mr-purple-800)", margin: "0 0 16px", maxWidth: "36ch" }}>&ldquo;{about.storyTitle}&rdquo;</div>
           {shown.map((par, i) => (
             <p key={i} style={{ fontFamily: "var(--font-editorial)", fontSize: 16, lineHeight: "var(--lh-relaxed)", color: "var(--text-body)", margin: "0 0 14px", maxWidth: "68ch" }}>{par}</p>
           ))}
@@ -530,7 +533,7 @@ function StoryBlock({ ctx, block, eyebrow, title, settings }) {
           </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             {about.story.length > 1 && (
-              <Button variant="secondary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? "Show less" : block.ctaLabel || "Read the full story"}</Button>
+              <Button variant="secondary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? "Show Less" : block.ctaLabel || "Read Her Full Story"}</Button>
             )}
           </div>
         </div>
@@ -544,7 +547,7 @@ function StoryBlock({ ctx, block, eyebrow, title, settings }) {
 // Read from their own browser rather than fetched back from the server: it is
 // theirs, it is instant, and — the point — it works for the anonymous visitor
 // who is most of the traffic. Nothing here needs an account.
-export function RecentlyViewed({ ctx, exclude = null, title = "Recently viewed" }) {
+export function RecentlyViewed({ ctx, exclude = null, title = "Recently Viewed" }) {
   const ids = (ctx.recentIds || []).filter((id) => id !== exclude);
   const picks = ids
     .map((id) => ctx.listings.find((e) => e.product.id === id))
@@ -681,15 +684,16 @@ export function ShopPage({ ctx }) {
         </select>
         <select aria-label="Sort" value={ctx.fSort} onChange={(e) => ctx.setFSort(e.target.value)} style={selStyle}>
           <option value="featured">Featured</option>
-          <option value="best">Best sellers</option>
+          <option value="best">Best Selling</option>
+          <option value="rated">Top Rated</option>
           <option value="new">Newest</option>
-          <option value="low">Price · low to high</option>
-          <option value="high">Price · high to low</option>
-          <option value="name">Name A–Z</option>
+          <option value="low">Price: Low to High</option>
+          <option value="high">Price: High to Low</option>
+          <option value="name">Name: A–Z</option>
         </select>
         <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{list.length} {list.length === 1 ? "product" : "products"}</span>
         {filtersDirty && (
-          <button onClick={() => { ctx.setFScope("city"); ctx.setSearch(""); setMf({ price: "all", fam: "all", gender: "all" }); ctx.nav("shop", { fCat: "all" }); }} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--mr-orchid-600)", fontWeight: 500 }}>Clear filters</button>
+          <button onClick={() => { ctx.setFScope("city"); ctx.setSearch(""); setMf({ price: "all", fam: "all", gender: "all" }); ctx.nav("shop", { fCat: "all" }); }} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--mr-orchid-600)", fontWeight: 500 }}>Clear Filters</button>
         )}
       </div>
       {list.length === 0 ? (
@@ -781,7 +785,7 @@ export function ProductPage({ ctx }) {
   const relatedFromShoppers = alsoIds.length > 0;
   return (
     <main style={{ maxWidth: 1180, margin: "0 auto", padding: `clamp(24px, 4vw, 44px) ${PAD}` }}>
-      <button onClick={() => ctx.nav("shop")} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--mr-purple-700)", padding: 0, marginBottom: 22 }}>← Back to shop</button>
+      <button onClick={() => ctx.nav("shop")} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--mr-purple-700)", padding: 0, marginBottom: 22 }}>← Continue Shopping</button>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(400px, 100%), 1fr))", gap: "clamp(28px, 5vw, 56px)", alignItems: "start" }}>
         <div style={{ position: "relative" }}>
           <ImageSlot src={hero && hero.url} shape="rounded" radius={16} name={pr.name} eager
@@ -807,6 +811,12 @@ export function ProductPage({ ctx }) {
               style={{ display: "inline-block", fontSize: 13, fontWeight: 500, color: "var(--mr-orchid-600)", marginBottom: 10 }}>
               {pr.brand} —
             </a>
+          )}
+          {pr.rating && pr.rating.count > 0 && ctx.settings.reviewsOn !== false && (
+            <div style={{ marginBottom: 12 }}>
+              <RatingLine rating={pr.rating} size={16} fontSize={13.5}
+                onClick={() => { const el = document.getElementById("reviews"); if (el) el.scrollIntoView({ behavior: "smooth" }); }} />
+            </div>
           )}
           <div style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontStyle: "italic", color: "var(--text-muted)", marginBottom: 14 }}>{pr.notes}</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
@@ -843,7 +853,7 @@ export function ProductPage({ ctx }) {
               <button onClick={() => ctx.setPrQty(ctx.prQty + 1)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "9px 15px", color: "var(--mr-purple-800)" }}>+</button>
             </div>
             <Button variant="primary" size="lg" onClick={() => (soldOut ? ctx.joinWaitlist(pr.id, prV) : ctx.addToCart(pr.id, prV, ctx.prQty))}>
-              {soldOut ? "Notify me when back" : "Add to cart — " + ctx.fmt(prV.ngn * ctx.prQty)}
+              {soldOut ? "Notify Me When Available" : "Add to Cart — " + ctx.fmt(prV.ngn * ctx.prQty)}
             </Button>
             <button onClick={() => ctx.toggleWishlist(pr.id)} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "none", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-pill)", padding: "12px 18px", cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13.5, color: "var(--mr-purple-800)" }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill={ctx.wishlist.includes(pr.id) ? "var(--mr-orchid-500)" : "none"} stroke={ctx.wishlist.includes(pr.id) ? "var(--mr-orchid-500)" : "var(--mr-purple-800)"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
@@ -851,7 +861,7 @@ export function ProductPage({ ctx }) {
             </button>
           </div>
           <div style={{ background: "var(--surface-card)", border: "1px solid var(--border-hairline)", borderRadius: "var(--radius-lg)", padding: "18px 20px", marginBottom: 18 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "0.04em", color: "var(--text-strong)", marginBottom: 10 }}>AVAILABILITY BY STORE</div>
+            <div style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "0.04em", color: "var(--text-strong)", marginBottom: 10 }}>STORE AVAILABILITY</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {ctx.locations.map((l) => {
                 const n = prV.stock[l.id] || 0;
@@ -880,9 +890,12 @@ export function ProductPage({ ctx }) {
           </div>
         </div>
       </div>
+      <div style={{ marginTop: "clamp(40px, 6vw, 64px)", maxWidth: 860 }}>
+        <ProductReviews ctx={ctx} productId={pr.id} />
+      </div>
       <RecentlyViewed ctx={ctx} exclude={pr.id} />
       <section style={{ marginTop: "clamp(40px, 6vw, 64px)" }}>
-        <Eyebrow>{relatedFromShoppers ? "Often opened together" : "You may also like"}</Eyebrow>
+        <Eyebrow>{relatedFromShoppers ? "Customers Also Viewed" : "You May Also Like"}</Eyebrow>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(240px, 100%), 1fr))", gap: 20, marginTop: 18 }}>
           {related.map((p) => (
             <div key={p.key} style={{ background: "var(--surface-card)", border: "1px solid var(--border-hairline)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
@@ -891,6 +904,7 @@ export function ProductPage({ ctx }) {
               </div>
               <div style={{ padding: "14px 16px 16px" }}>
                 <a href={p.href} onClick={(e) => { e.preventDefault(); p.open(); }} style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text-strong)" }}>{p.name}</a>
+                <div style={{ marginTop: 6 }}><RatingLine rating={p.rating} size={12} /></div>
                 <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>{p.priceLabel}</div>
               </div>
             </div>

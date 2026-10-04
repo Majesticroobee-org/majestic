@@ -6,14 +6,16 @@
 // database. shop.js supplies the rows; everything below is arithmetic.
 
 import { todayInWAT, watToMs, endOfDayWAT } from "./util.js";
+import { topRated } from "./reviews.js";
 
-export const SEGMENTS = ["new-arrivals", "best-sellers", "gift-sets", "deals"];
+export const SEGMENTS = ["new-arrivals", "best-sellers", "gift-sets", "deals", "top-rated"];
 
 export const SEGMENT_LABELS = {
   "new-arrivals": "New arrivals",
   "best-sellers": "Best sellers",
   "gift-sets": "Gift sets",
   deals: "Deals",
+  "top-rated": "Top Rated",
 };
 
 // How long a product reads as "new", and how few products a shelf may show
@@ -59,12 +61,14 @@ export function daysBefore(days, today = todayInWAT()) {
  * @param sales     [{ productId, units }] over the best-seller window
  * @param categories[{ id, grp }] — 'gift' is what makes a category a set
  * @param dealProductIds ids named by the deals that are running right now
+ * @param ratings   { productId: { avg, count } } from published reviews
  */
 export function computeSegments({
   products = [],
   sales = [],
   categories = [],
   dealProductIds = [],
+  ratings = {},
   today = todayInWAT(),
   newArrivalDays = NEW_ARRIVAL_DAYS,
   minShelf = MIN_SHELF,
@@ -114,6 +118,9 @@ export function computeSegments({
     // either with full-price staples would be a lie.
     "gift-sets": giftSets,
     deals,
+    // Rated by the people who bought them, best first — and, like the two
+    // above, never padded: see worker/reviews.js.
+    "top-rated": topRated(ratings, order),
   };
 }
 

@@ -58,7 +58,15 @@ async function loadProduct(db, id) {
     : [];
   const stockOf = {};
   for (const s of stock) (stockOf[s.variant_id] ||= {})[s.location_id] = s.qty;
+  // The stars search shows beside the product. Read alone, like the rest of
+  // this, and tolerant of a database the reviews migration has not reached.
+  let rating = null;
+  try {
+    const r = await db.prepare("SELECT COUNT(*) AS n, AVG(rating) AS avg FROM product_reviews WHERE product_id=? AND status='published'").bind(id).first();
+    if (r && r.n) rating = { avg: Math.round(r.avg * 10) / 10, count: r.n };
+  } catch { /* no reviews table yet */ }
   return {
+    rating,
     id: p.id, name: p.name, cat: p.cat, brand: p.brand || "", gender: p.gender, notes: p.notes, desc: p.descr,
     imageUrl: p.image_url, live: !!p.live,
     images: images.map((im) => ({ url: im.url })),

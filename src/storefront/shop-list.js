@@ -29,15 +29,18 @@ function useSearchRecord(term, found) {
 // new or what has sold well. Category, sub-category, brand, collection and
 // search all compose, so "gift sets in body mists" is one address.
 export const SEGMENT_COPY = {
-  "new-arrivals": { title: "New arrivals" },
-  "best-sellers": { title: "Best sellers" },
+  "new-arrivals": { title: "New Arrivals" },
+  "best-sellers": { title: "Best Sellers" },
   deals: { title: "Deals" },
-  "gift-sets": { title: "Gift sets" },
+  "gift-sets": { title: "Gift Sets" },
+  "top-rated": { title: "Top Rated" },
 };
 
 // The shop page with nothing narrowed down, in the client's words.
-export const SHOP_TITLE = "Shop Majestic Roobee products";
-export const SHOP_SUB = "From everyday signature fragrances to fragrances reserved for special moments, plus wellness products made with you in mind, discover our collection of perfumes, perfume oils, body mists, feminine care, and home fragrances. Find something that smells like you.";
+// Short and scannable, the way the big fragrance shops write a listing header:
+// what is here, then the promise, in one line each.
+export const SHOP_TITLE = "Shop All Products";
+export const SHOP_SUB = "Perfumes, perfume oils, body mists, feminine care and home fragrance — non-toxic and made to last.";
 
 // The phone's price bands, in naira: under the first, between, over the second.
 export const PRICE_BANDS = [30000, 50000];
@@ -131,6 +134,12 @@ export function useShopList(ctx, { mobile = false } = {}) {
   else if (ctx.fSort === "best") list = list.slice().sort(rankBy("best-sellers"));
   else if (ctx.fSort === "low") list = list.slice().sort((a, b) => priceOf(a) - priceOf(b));
   else if (ctx.fSort === "high") list = list.slice().sort((a, b) => priceOf(b) - priceOf(a));
+  // Highest rated first: the average, then how many people gave it. A bottle
+  // nobody has rated yet goes after every one somebody has.
+  else if (ctx.fSort === "rated") {
+    const r = (e) => e.product.rating || { avg: 0, count: 0 };
+    list = list.slice().sort((a, b) => r(b).avg - r(a).avg || r(b).count - r(a).count);
+  }
   else if (ctx.fSort === "name") list = list.slice().sort((a, b) => a.product.name.localeCompare(b.product.name));
   // On new arrivals, deals or best sellers, "featured" means the order that
   // page is already in — newest first, best-selling first — rather than city

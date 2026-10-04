@@ -6,6 +6,7 @@ import { lowStockLines } from "./inventory.js";
 import { loadHomeBlocks, resolveHomeBlocks } from "./home.js";
 import { ingest, stitchVisitor } from "./insights.js";
 import { loadAffinity } from "./affinity.js";
+import { loadRatings } from "./reviews.js";
 import { planFulfilment } from "./fulfilment.js";
 import { previewOf, plain, readingMinutes } from "../src/lib/blog.js";
 import { emitEvent } from "./events.js";
@@ -126,10 +127,16 @@ shop.get("/store", async (c) => {
     id: d.id, title: d.title, desc: d.descr, badge: d.badge, endsAt: d.ends_at || "",
     productIds: dealItems.filter((i) => i.deal_id === d.id).map((i) => i.product_id).filter((id) => liveIds.has(id)),
   }));
+  // The stars on every card: average and count from published reviews, by the
+  // people who bought the product (worker/reviews.js). Off, they are neither
+  // shown nor used to order the "Top Rated" shelf.
+  const ratings = settings.reviewsOn === false ? {} : await loadRatings(db);
+  for (const p of products) if (ratings[p.id]) p.rating = ratings[p.id];
   const segments = computeSegments({
     products,
     sales: await bestSellerUnits(db, settings),
     categories,
+    ratings,
     dealProductIds: deals.flatMap((d) => d.productIds),
     today,
     newArrivalDays: settings.newArrivalDays || NEW_ARRIVAL_DAYS,

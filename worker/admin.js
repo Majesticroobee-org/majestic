@@ -20,6 +20,7 @@ import { issueReward, getReward, rewardOut, expiryFromNow, cleanCode } from "./r
 import { clamp as clampText, PREVIEW_MAX, TITLE_MAX } from "../src/lib/blog.js";
 import { erpStatus, erpPing, erpProbe, erpReadSpec, erpPull, erpSyncWarehouses, erpSyncItemGroups } from "./erp.js";
 import { emailConfig, sendEmail } from "./email.js";
+import { mountAdminReviews } from "./reviews.js";
 
 const randHex = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -103,6 +104,10 @@ admin.use("*", async (c, next) => {
   c.set("admin", claims);
   return next();
 });
+
+// Product ratings — reading, hiding, answering, and typing in feedback the
+// house received elsewhere. worker/reviews.js.
+mountAdminReviews(admin);
 
 const requireSuper = async (c, next) => {
   if (c.get("admin").role !== "super") return c.json({ error: "Only a super admin can do that." }, 403);
@@ -1000,6 +1005,11 @@ admin.patch("/orders/:no", async (c) => {
   const no = c.req.param("no");
   const db = c.env.DB;
   await db.prepare("UPDATE orders SET status=? WHERE no=?").bind(status, no).run();
+  // The first time it reaches the shopper is when the review email's clock
+  // starts (worker/reviews.js).
+  if (status === "Delivered" || status === "Collected") {
+    await db.prepare("UPDATE orders SET delivered_at = COALESCE(delivered_at, datetime('now')) WHERE no=?").bind(no).run();
+  }
   await db.prepare("UPDATE order_events SET current=0 WHERE order_no=?").bind(no).run();
   const existing = await db.prepare("SELECT id FROM order_events WHERE order_no=? AND step=?").bind(no, status).first();
   if (existing) {
@@ -1084,6 +1094,9 @@ admin.put("/settings", async (c) => {
     // photographs across), so there is nothing here to keep.
     // Editorial
     "blogEnabled", "blogHeadline", "blogIntro", "reviewsHeadline", "reviewsIntro",
+    // Product ratings (worker/reviews.js): whether stars show at all, whether
+    // written reviews wait for approval, and when buyers are asked.
+    "reviewsOn", "reviewsModerate", "reviewRequestDays", "reviewFallbackDays", "reviewMaxAgeDays",
     // The ERP link. The credentials are Worker secrets and are not here; these
     // are the settings that say which ERP, where it is, how to read it, and
     // how brave the connector is allowed to be. Which ERP is a *setting*

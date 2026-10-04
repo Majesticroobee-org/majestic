@@ -135,11 +135,12 @@ check("...sits beside the search box in the band", /<BookButton ctx=\{ctx\} onDa
 check("...and beside it in the top bar when search moves there", /\{searchBox\(false\)\}<\/div>\s*<BookButton ctx=\{ctx\} \/>/.test(chromeSrc), true);
 check("...and is not width-gated like the old tab was", /page: "consultation", from:/.test(chromeSrc), false);
 // A phone has its own chrome (mobile-chrome.jsx): the booking button is a
-// gold chip beside the city and currency on every browsing page, and a button
-// at the top of the menu — both only while the studio is taking bookings.
+// gold chip in the header beside the currency and the account, on every page,
+// and a button at the top of the menu — both only while the studio is taking
+// bookings.
 const mobileSrc = readFileSync(new URL("../src/storefront/mobile-chrome.jsx", import.meta.url), "utf8");
-check("...and on a phone, beside the city and currency",
-  /function SearchRow[\s\S]*?\{consult\.on && \([\s\S]{0,200}ctx\.nav\("consultation"\)/.test(mobileSrc), true);
+check("...and on a phone, in the header beside the currency and the account",
+  /function MobileHeader[\s\S]*?\{consult\.on && \([\s\S]{0,200}ctx\.nav\("consultation"\)/.test(mobileSrc), true);
 check("the phone's menu lists it only while open",
   /function MenuSheet[\s\S]*?\{consult\.on && \([\s\S]{0,200}ctx\.nav\("consultation"\)/.test(mobileSrc), true);
 
