@@ -45,12 +45,12 @@ export function footerColumns(ctx) {
       title: "Shop",
       links: [
         ...SHOP_CATS.filter((id) => byId.has(id)).map((id) => page(byId.get(id).label, "shop", { fCat: id, fSeg: null, fBrand: "", fCol: null })),
-        page("Best sellers", "shop", { fCat: "all", fSeg: "best-sellers", fBrand: "", fCol: null }),
+        page("Best Sellers", "shop", { fCat: "all", fSeg: "best-sellers", fBrand: "", fCol: null }),
       ],
     },
     {
       title: "About",
-      links: [page("Our story", "about"), page("Contact us", "contact"), page("FAQs", "faq")],
+      links: [page("Our Story", "about"), page("Contact Us", "contact"), page("FAQs", "faq")],
     },
     // The rewards section on the home page is the programme's explanation;
     // there is no page of its own to send anyone to.
@@ -62,14 +62,14 @@ export function footerColumns(ctx) {
       title: "Help",
       links: [
         // A published information page wins; until then the FAQ answers it.
-        published.has("shipping") ? info("Shipping & delivery", "shipping") : anchor("Shipping & delivery", "faq", "shipping", "/faq#shipping"),
-        published.has("returns") ? info("Returns & exchanges", "returns") : anchor("Returns & exchanges", "faq", "returns", "/faq#returns"),
-        ...(published.has("privacy") ? [info("Privacy policy", "privacy")] : []),
-        ...(published.has("terms") ? [info("Terms & conditions", "terms")] : []),
+        published.has("shipping") ? info("Shipping & Delivery", "shipping") : anchor("Shipping & Delivery", "faq", "shipping", "/faq#shipping"),
+        published.has("returns") ? info("Returns & Exchanges", "returns") : anchor("Returns & Exchanges", "faq", "returns", "/faq#returns"),
+        ...(published.has("privacy") ? [info("Privacy Policy", "privacy")] : []),
+        ...(published.has("terms") ? [info("Terms & Conditions", "terms")] : []),
       ],
     },
     {
-      title: "Follow us",
+      title: "Follow Us",
       links: FOOTER_SOCIALS.filter((so) => settings[so.setting])
         .map((so) => ({ id: so.id, label: so.name, href: settings[so.setting], external: true })),
     },

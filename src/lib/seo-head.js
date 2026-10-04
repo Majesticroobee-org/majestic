@@ -209,6 +209,11 @@ export function headFor({
           ...(product.gender && product.gender !== "Unisex" ? { audience: { "@type": "PeopleAudience", suggestedGender: product.gender.toLowerCase() } } : {}),
           // One variation stays a plain Offer; a range becomes an
           // AggregateOffer so search shows the true low/high span.
+          // The stars, as search shows them — only from real reviews, and only
+          // once there is one (worker/reviews.js).
+          ...(product.rating && product.rating.count > 0
+            ? { aggregateRating: { "@type": "AggregateRating", ratingValue: product.rating.avg, reviewCount: product.rating.count, bestRating: 5, worstRating: 1 } }
+            : {}),
           offers: variants.length > 1
             ? { "@type": "AggregateOffer", priceCurrency: "NGN", lowPrice: lo, highPrice: hi, offerCount: variants.length, offers: variants.map(offer) }
             : variants.length ? offer(variants[0]) : undefined,
@@ -226,6 +231,7 @@ export function headFor({
     "best-sellers": { title: `Best Sellers | ${siteName}`, path: "/best-sellers", desc: `The best-selling fragrances at ${siteName}.` },
     deals: { title: `Deals & Offers | ${siteName}`, path: "/deals", desc: `Perfumes, mists and more on sale now at ${siteName}.` },
     "gift-sets": { title: `Gift Sets | ${siteName}`, path: "/gift-sets", desc: `Fragrance, body mist and perfume oil gift sets from ${siteName}.` },
+    "top-rated": { title: `Top Rated | ${siteName}`, path: "/top-rated", desc: `The fragrances our customers rate highest at ${siteName}.` },
   };
   if (page === "shop" && segment && SEGMENT_HEADS[segment]) {
     const m = SEGMENT_HEADS[segment];
@@ -341,6 +347,7 @@ export function headFor({
     post: { title: `Blog | ${siteName}`, path: "/blog", desc: `Fragrance tips, layering and care from ${siteName}.` },
     categories: { title: `Shop by Category | ${siteName}`, path: "/shop/categories", desc: "Perfumes, perfume oils, body mists, feminine care, home fragrance, wellness and gift sets." },
     cart: { title: `Cart | ${siteName}`, path: "/cart", desc: "", noindex: true },
+    review: { title: `Rate Your Order | ${siteName}`, path: "/review", desc: "", noindex: true },
     checkout: { title: `Checkout | ${siteName}`, path: "/checkout", desc: "", noindex: true },
     confirm: { title: `Order Confirmed | ${siteName}`, path: "/confirm", desc: "", noindex: true },
   }[page] || { title: siteName, path: "/", desc: baseDesc };

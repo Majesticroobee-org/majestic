@@ -9,6 +9,7 @@
 // whether it is on the shelf.
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { ImageSlot } from "../ds/components.jsx";
+import { RatingLine } from "./stars.jsx";
 
 // ---- Icons ----------------------------------------------------------------
 
@@ -124,7 +125,7 @@ export function FreeShipBar({ ctx }) {
   return (
     <div>
       <div style={{ fontSize: 13, fontWeight: 500, color: f.remaining ? "var(--text-body)" : "#3f6b45", paddingBottom: 8 }}>
-        {f.remaining ? `Add ${ctx.fmt(f.remaining)} more for free delivery` : "Free delivery unlocked"}
+        {f.remaining ? <>You&apos;re <strong style={{ fontWeight: 700 }}>{ctx.fmt(f.remaining)}</strong> away from FREE delivery</> : "You've unlocked FREE delivery!"}
       </div>
       <div style={{ height: 6, borderRadius: "var(--radius-pill)", background: "var(--surface-sunken)", overflow: "hidden" }}>
         <div style={{ width: `${f.pct}%`, height: "100%", background: f.remaining ? "var(--mr-gold-500)" : "#8fd694", transition: "width 300ms" }} />
@@ -149,7 +150,7 @@ export function MobileProductCard({ p }) {
   const badge = p.offPct > 0
     ? { text: `${p.offPct}% OFF`, bg: "var(--mr-purple-900)", fg: "var(--mr-cream)" }
     : p.isNew ? { text: "New", bg: "var(--accent-gold)", fg: "var(--mr-purple-950)" } : null;
-  const label = p.chooseSize ? "Choose size" : v.addLabel;
+  const label = p.chooseSize ? "Choose Size" : v.addLabel;
   const act = p.chooseSize || v.add;
   return (
     <div style={{ background: "var(--surface-card)", border: "1px solid var(--border-hairline)", borderRadius: "var(--radius-md)", overflow: "hidden", display: "flex", flexDirection: "column", height: "100%", boxShadow: "var(--shadow-xs)", fontFamily: "var(--font-sans)", minWidth: 0 }}>
@@ -173,6 +174,7 @@ export function MobileProductCard({ p }) {
           {p.name}
         </a>
         <div style={{ fontSize: 11.5, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.sizeLabel}</div>
+        <RatingLine rating={p.rating} size={12} fontSize={11.5} showAvg={false} />
         <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 600, fontSize: 14.5, color: "var(--mr-purple-900)" }}>{p.rangeLabel || v.priceLabel}</span>
           {!p.rangeLabel && v.compareAtLabel && <span style={{ fontSize: 11.5, color: "var(--text-muted)", textDecoration: "line-through" }}>{v.compareAtLabel}</span>}

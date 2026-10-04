@@ -4,6 +4,7 @@ import { useWindowWidth } from "../lib/hooks.js";
 import { Badge, Button, Input } from "../ds/components.jsx";
 import { Dashboard, Inventory, Catalogue, CollectionsPage } from "./pages-ops.jsx";
 import { CategoriesPage, DealsPage, BlogPage, TestimonialsPage, PagesPage } from "./pages-content.jsx";
+import { ProductReviewsPage } from "./product-reviews.jsx";
 import { DailyDealsPage } from "./daily-deals.jsx";
 import { Sales, Rewards, Notifications, Inquiries, SettingsPage } from "./pages-growth.jsx";
 import { TeamPage, AccountPage } from "./team.jsx";
@@ -55,7 +56,8 @@ const PAGES = [
   { id: "daily-deals", label: "Daily Deals" },
   { id: "blog", label: "Blog" },
   { id: "pages", label: "Pages" },
-  { id: "reviews", label: "Reviews" },
+  { id: "ratings", label: "Ratings" },
+  { id: "reviews", label: "Testimonials" },
   { id: "sales", label: "Promo codes" },
   { id: "rewards", label: "Rewards" },
   { id: "notif", label: "Notifications" },
@@ -432,6 +434,7 @@ export default function App() {
         {activePage === "pages" && <PagesPage ctx={ctx} />}
         {activePage === "home" && <HomePageAdmin ctx={ctx} />}
         {activePage === "insights" && <InsightsPage ctx={ctx} />}
+        {activePage === "ratings" && <ProductReviewsPage ctx={ctx} />}
         {activePage === "reviews" && <TestimonialsPage ctx={ctx} />}
         {activePage === "sales" && <Sales ctx={ctx} />}
         {activePage === "rewards" && <Rewards ctx={ctx} />}

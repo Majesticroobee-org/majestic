@@ -4,6 +4,7 @@ import { admin } from "./admin.js";
 import { account } from "./customers.js";
 import { v1, handleMcp } from "./integrations.js";
 import { runScheduled } from "./events.js";
+import { reviews, queueReviewRequests } from "./reviews.js";
 import { releaseExpiredOrders } from "./payments.js";
 import { sweepStock } from "./inventory.js";
 import { rollup } from "./insights.js";
@@ -17,6 +18,7 @@ import { isShellPath, serveShell } from "./seo.js";
 const app = new Hono();
 
 app.route("/api", shop);
+app.route("/api", reviews);
 app.route("/api/admin", admin);
 app.route("/api/account", account);
 app.route("/api/v1", v1);
@@ -68,6 +70,7 @@ app.get("/robots.txt", (c) => {
     "Disallow: /account",
     "Disallow: /wishlist",
     "Disallow: /track",
+    "Disallow: /review/",
     "Disallow: /*?q=",
     `Sitemap: ${origin}/sitemap.xml`,
     "",
@@ -80,7 +83,7 @@ app.get("/sitemap.xml", async (c) => {
   // Every page the header and footer link to is a real, indexable page of its
   // own. Category pages are listed from the live tree below.
   const staticUrls = [
-    "/", "/shop", "/new-arrivals", "/best-sellers", "/deals", "/gift-sets",
+    "/", "/shop", "/new-arrivals", "/best-sellers", "/top-rated", "/deals", "/gift-sets",
     "/locations", "/reviews", "/blog", "/about", "/faq", "/contact",
   ];
   // The Perfume Studio's booking page is only a page while the studio is
@@ -172,6 +175,9 @@ async function cron(env) {
   // line in the last quarter hour should leave the building on this run, not the
   // next one.
   try { await sweepStock(env); } catch (e) { console.error("stock sweep failed", e); }
+  // Buyers whose orders arrived a few days ago are asked to rate them — queued
+  // before the outbox drains, so the email leaves on this same run.
+  try { await queueReviewRequests(env); } catch (e) { console.error("review requests failed", e); }
   try { await runScheduled(env); } catch (e) { console.error("automation run failed", e); }
   // The ERP link. It decides for itself whether this cadence is its turn — the
   // house sets how often it calls out, and this cron fires every 15 minutes

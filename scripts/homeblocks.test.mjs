@@ -103,8 +103,9 @@ check("...but a deals row with two real markdowns shows the two, not two plus fi
     { ...ctx, segments: { ...ctx.segments, deals: ["c-wash", "h-spray"] } })[0].productIds, ["c-wash", "h-spray"]);
 check("best sellers IS padded — it is a selection, not a claim about a price",
   resolveHomeBlocks([block({ id: "b", refId: "best-sellers", count: 5 })], ctx)[0].productIds.length, 5);
-check("the two claim shelves are named, so adding a third is a deliberate act",
-  [...CLAIM_SEGMENTS].sort(), ["deals", "gift-sets"]);
+// Top rated joined them deliberately: a bottle nobody has rated is not one.
+check("the three claim shelves are named, so adding a fourth is a deliberate act",
+  [...CLAIM_SEGMENTS].sort(), ["deals", "gift-sets", "top-rated"]);
 check("'ready at your store' is never padded — it must not name what is not there",
   resolveHomeBlocks([block({ id: "c", source: "in-city", count: 4 })],
     { ...ctx, order: ["c-wash"], sellable: new Set(["c-wash"]) })[0].productIds, ["c-wash"]);

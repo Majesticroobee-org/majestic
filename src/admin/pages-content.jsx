@@ -526,7 +526,7 @@ const KIND_LABELS = { instagram: "Instagram", tiktok: "TikTok", youtube: "YouTub
 
 // Tying a review to a product used to mean finding it in a list of every piece
 // the house carries. Type instead: name, brand or SKU-ish id, and pick.
-function ProductPicker({ products, value, onChange, label = "About which product (optional)" }) {
+export function ProductPicker({ products, value, onChange, label = "About which product (optional)" }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const chosen = products.find((p) => p.id === value) || null;

@@ -18,6 +18,10 @@
 // it without a deploy, the same way the logo works.
 export const FOUNDER_PHOTO = "/founder.jpg";
 
+// The heading over the founder's story on the home page, when the home block
+// has none of its own (Admin → Home page → the story section's title).
+export const FOUNDER_HEADING = "Message from our Founder";
+
 // The founder's story, exactly as the client wrote it. The About page runs it
 // in full; the home page's story band shows the opening paragraph and links
 // through.

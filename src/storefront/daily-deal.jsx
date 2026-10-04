@@ -76,7 +76,7 @@ export function DailyDealCard({ ctx, style = {} }) {
         {deal.compareAtNgn && <span style={{ fontSize: 13, color: "var(--text-muted)", textDecoration: "line-through" }}>{ctx.fmt(deal.compareAtNgn)}</span>}
       </div>
       <Button variant="primary" size="md" block disabled={!variant} onClick={() => variant && ctx.addToCart(deal.productId, variant, 1)}>
-        {variant ? "Add to cart" : "View product"}
+        {variant ? "Add to Cart" : "Shop Now"}
       </Button>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, paddingTop: 4 }}>
         {units(left).map((u) => (

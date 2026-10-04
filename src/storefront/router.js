@@ -12,6 +12,7 @@ const SEGMENT_PATHS = {
   "best-sellers": "/best-sellers",
   deals: "/deals",
   "gift-sets": "/gift-sets",
+  "top-rated": "/top-rated",
 };
 const PATH_SEGMENTS = Object.fromEntries(Object.entries(SEGMENT_PATHS).map(([seg, path]) => [path.slice(1), seg]));
 
@@ -34,6 +35,8 @@ export function pathToRoute(pathname = window.location.pathname, search = window
     const sku = params.get("variant");
     return { page: "product", productId: decodeURIComponent(parts[1]), ...(sku ? { prSku: sku } : {}) };
   }
+  // The page a review email's stars open: what was in the order, to rate.
+  if (parts[0] === "review" && parts[1]) return { page: "review", reviewToken: decodeURIComponent(parts[1]) };
   if (parts[0] === "blog") {
     return parts[1] ? { page: "post", postSlug: decodeURIComponent(parts[1]) } : { page: "blog" };
   }
@@ -82,6 +85,7 @@ export function routeToPath(page, extra = {}) {
     const base = `/product/${encodeURIComponent(extra.productId)}`;
     return extra.prSku ? `${base}?variant=${encodeURIComponent(extra.prSku)}` : base;
   }
+  if (page === "review" && extra.reviewToken) return `/review/${encodeURIComponent(extra.reviewToken)}`;
   if (page === "post" && extra.postSlug) return `/blog/${encodeURIComponent(extra.postSlug)}`;
   if (page === "info") return extra.pageSlug ? `/${encodeURIComponent(extra.pageSlug)}` : "/";
   if (page === "post") return "/blog";

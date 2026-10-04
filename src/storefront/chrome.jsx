@@ -438,7 +438,7 @@ function Header({ ctx }) {
     <div style={{ display: "flex", alignItems: "center", gap: 10, alignSelf: "center", flex: dark ? "0 1 320px" : undefined, minWidth: dark ? 160 : undefined, background: "var(--surface-card)", borderRadius: "var(--radius-sm)", padding: "8px 14px", border: dark ? "none" : "1px solid var(--border-hairline)" }}>
       <input value={ctx.search} onChange={(e) => ctx.setSearch(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && ctx.nav("shop", { fSeg: null, fCol: null })}
-        placeholder="Search products" aria-label="Search the store"
+        placeholder="Search perfumes, oils, mists…" aria-label="Search the store"
         style={{ border: "none", outline: "none", background: "transparent", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-strong)", width: "100%" }} />
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mr-mute)" strokeWidth="1.6" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.5" y2="16.5" /></svg>
     </div>
@@ -605,7 +605,7 @@ function CartDrawer({ ctx }) {
             <span>Subtotal</span><span>{ctx.fmt(cc.sub)}</span>
           </div>
           <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>Delivery calculated at checkout.</div>
-          <Button variant="gold" size="lg" block disabled={cc.items.length === 0} onClick={() => ctx.nav("checkout")}>Checkout</Button>
+          <Button variant="gold" size="lg" block disabled={cc.items.length === 0} onClick={() => ctx.nav("checkout")}>Proceed to Checkout</Button>
         </div>
       </aside>
     </>
