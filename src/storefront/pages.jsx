@@ -1,6 +1,6 @@
 // Storefront pages — ported from "Majestic Roobee Storefront.dc.html".
 import React, { useEffect, useState } from "react";
-import { Eyebrow, GildedRule, Badge, Button, Input, Textarea, ImageSlot, DealCard } from "../ds/components.jsx";
+import { Eyebrow, GildedRule, Badge, Button, Input, Textarea, Select, ImageSlot, DealCard } from "../ds/components.jsx";
 import { ProductCard } from "./product-card.jsx";
 import { routeToPath } from "./router.js";
 import { EmbedCard, TestimonialCarousel, PostBody, PostCard } from "./pages-content.jsx";
@@ -1105,8 +1105,8 @@ function OrderSummary({ ctx, showPay }) {
         {row("Subtotal", ctx.fmt(cc.sub))}
         {cc.discount > 0 && row(ctx.promoInfo ? ctx.promoInfo.code : "Discount", "−" + ctx.fmt(cc.discount), "var(--accent-gold-ink)")}
         {row(
-          co.fulfill === "collect" ? "Collection" : split ? `Delivery (${plan.deliveries.length})` : "Delivery",
-          ctx.planning && !plan ? "—" : cc.ship === 0 ? "Free" : ctx.fmt(cc.ship)
+          co.fulfill === "collect" ? "Collection" : split ? `Delivery (${plan.deliveries.length})` : cc.areaLabel ? `Delivery to ${cc.areaLabel}` : "Delivery",
+          cc.shipPending ? "Choose your area" : ctx.planning && !plan ? "—" : cc.ship === 0 ? "Free" : ctx.fmt(cc.ship)
         )}
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 17, fontWeight: 600, color: "var(--mr-purple-900)", borderTop: "1px solid var(--border-hairline)", paddingTop: 12, marginTop: 3 }}>
           <span>Total</span><span style={money}>{ctx.fmt(cc.total)}</span>
@@ -1141,15 +1141,17 @@ function OrderSummary({ ctx, showPay }) {
 function PayButton({ ctx }) {
   const { cc, co, plan } = ctx;
   const blocked = plan && plan.mode === "unavailable";
+  // Until an area is picked the total has no delivery in it yet.
+  const total = ctx.fmt(cc.total) + (cc.shipPending ? " + delivery" : "");
   const label = ctx.placing
     ? "Working…"
     : ctx.reconfirm
-      ? "Confirm and pay " + ctx.fmt(cc.total)
+      ? "Confirm and pay " + total
       : co.pay === "whatsapp"
         ? "Continue on WhatsApp"
         : co.pay === "transfer"
-          ? "Place order — " + ctx.fmt(cc.total)
-          : "Pay " + ctx.fmt(cc.total);
+          ? "Place order — " + total
+          : "Pay " + total;
   return (
     <div>
       <Button variant="gold" size="lg" block disabled={ctx.placing || blocked} onClick={ctx.placeOrder}>{label}</Button>
@@ -1219,7 +1221,16 @@ export function CheckoutPage({ ctx }) {
               options={[{ id: "delivery", label: `Deliver to ${cityName}` }, { id: "collect", label: "Collect in store" }]}
             />
             {co.fulfill === "delivery" && (
-              <div style={{ marginTop: 16 }}>
+              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* In a city the house has zoned, the area sets the fee — so it
+                    comes first, and the address is the street within it. */}
+                {ctx.areaOptions.length > 0 && (
+                  <Select label="Area" value={co.area} onChange={(e) => ctx.setArea(e.target.value)}
+                    hint={cc.shipPending ? "Delivery is priced by area" : undefined}>
+                    <option value="" disabled>Choose your area in {cityName}…</option>
+                    {ctx.areaOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </Select>
+                )}
                 <Input label="Address" value={co.address} onChange={(e) => setCo({ ...co, address: e.target.value })} placeholder="House, street, area" autoComplete="street-address" />
               </div>
             )}

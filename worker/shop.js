@@ -9,6 +9,8 @@ import { loadAffinity } from "./affinity.js";
 import { loadRatings } from "./reviews.js";
 import { joinList, perkFor, applySignupPerk, releaseSignupPerk } from "./signup.js";
 import { planFulfilment } from "./fulfilment.js";
+import { loadDeliveryAreas } from "./delivery.js";
+import { localRate, pickArea } from "../src/lib/delivery.js";
 import { previewOf, plain, readingMinutes } from "../src/lib/blog.js";
 import { emitEvent } from "./events.js";
 import { cleanAttribution } from "./attribution.js";
@@ -79,10 +81,15 @@ async function storeCatalogue(db, { liveOnly = true, settings = null, now = Date
 shop.get("/store", async (c) => {
   const db = c.env.DB;
   const settings = await getSettings(db);
+  const areasByCity = await loadDeliveryAreas(db);
   const locations = (await activeLocations(db)).map((l) => ({
     id: l.id, city: l.city, store: l.store, address: l.address, shipNGN: l.ship_ngn, shipUSD: l.ship_usd, eta: l.eta, phone: l.phone,
     // What someone needs to actually walk in — shown on the Locations page.
     hours: l.hours || "", mapsUrl: l.maps_url || "",
+    // The checkout's area picker: each area with its zone's fee, delivery time
+    // and free-delivery line. Empty for a city priced by one flat fee.
+    areas: (areasByCity[l.id] || []).map((a) => ({ id: a.id, name: a.name, fee: a.fee, eta: a.eta, freeOver: a.freeOver })),
+    unlistedArea: l.unlisted_area !== 0,
   }));
   const catRows = (await db.prepare("SELECT * FROM categories WHERE live=1 ORDER BY sort, id").all()).results;
   // Flat on the wire, a tree in the browser: `parentId` is all the storefront
@@ -576,20 +583,41 @@ async function resolveLines(db, items) {
   return { lines };
 }
 
+// Where in the city the order is going, and what that costs. A city whose
+// areas are zoned needs the shopper's area before it can price a delivery; one
+// that isn't is priced by the store's standard fee as it always was.
+//
+// Returns { local, area, zone, label, required, error } — `local` is the rate
+// for a parcel from the buyer's own store (see src/lib/delivery.js).
+async function deliveryRate(db, { city, areaId, locations, settings }) {
+  const loc = locations.find((l) => l.id === city);
+  const areas = (await loadDeliveryAreas(db))[city] || [];
+  const picked = pickArea({ areaId, areas, allowUnlisted: !loc || loc.unlisted_area !== 0 });
+  const local = localRate({
+    cityId: city, standardFee: loc ? loc.ship_ngn : 2500, standardEta: loc ? loc.eta : "", area: picked.area, settings,
+  });
+  return { ...picked, local, zone: picked.area ? picked.area.zone : "" };
+}
+
 // What the shopper is shown before they commit: which store (or stores) their
 // order ships from, and what each parcel costs. The checkout page calls this
-// whenever the cart, the city or the fulfilment choice changes.
+// whenever the cart, the city, the area or the fulfilment choice changes.
 shop.post("/fulfilment/quote", async (c) => {
   const db = c.env.DB;
-  const { city, fulfill, items } = await c.req.json();
+  const { city, fulfill, items, area } = await c.req.json();
   const locations = await activeLocations(db);
   if (!locations.some((l) => l.id === city)) return c.json({ error: "Pick a city first." }, 400);
   if (!Array.isArray(items) || !items.length) return c.json({ error: "Your cart is empty." }, 400);
   const { lines, error } = await resolveLines(db, items);
   if (error) return c.json({ error }, 400);
   const settings = await getSettings(db);
-  const plan = planFulfilment({ lines, locations, city, settings, fulfil: fulfill === "collect" ? "collect" : "delivery" });
-  return c.json({ plan: publicPlan(plan) });
+  const collect = fulfill === "collect";
+  const where = await deliveryRate(db, { city, areaId: area, locations, settings });
+  const plan = planFulfilment({ lines, locations, city, settings, fulfil: collect ? "collect" : "delivery", local: where.local });
+  // Without an area the plan still answers which stores it ships from — but the
+  // fee would be a guess, so the shopper is asked for the area instead of shown
+  // a number that changes once they give it.
+  return c.json({ plan: { ...publicPlan(plan), areaNeeded: !collect && !!where.error } });
 });
 
 // What the shopper is shown: when each delivery arrives, what it costs, and
@@ -632,7 +660,7 @@ function validateOrder({ customer, city, fulfill, pay, items, locations }) {
 shop.post("/orders", async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
-  const { customer = {}, city, fulfill, pay, promo: promoCode, items, acceptSplit } = body;
+  const { customer = {}, city, fulfill, pay, promo: promoCode, items, acceptSplit, area: areaId } = body;
   // Where the shopper came from (an ad, a tagged link, a referring site), and
   // whether they accepted marketing cookies — which alone lets the sale be
   // reported to Meta. See worker/attribution.js and worker/meta.js.
@@ -646,6 +674,11 @@ shop.post("/orders", async (c) => {
     return c.json({ error: "Card payment is unavailable right now — choose bank transfer or WhatsApp." }, 400);
 
   const settings = await getSettings(db);
+  const collect = fulfill === "collect";
+  // Where in the city it is going decides what the delivery costs, so a zoned
+  // city refuses a delivery without an area rather than guessing one.
+  const where = await deliveryRate(db, { city, areaId, locations, settings });
+  if (!collect && where.error) return c.json({ error: where.error, areaNeeded: true }, 400);
   const resolved = await resolveLines(db, items);
   if (resolved.error) return c.json({ error: resolved.error }, 400);
   const lines = resolved.lines;
@@ -683,7 +716,7 @@ shop.post("/orders", async (c) => {
 
   // The plan is recomputed here rather than trusted from the client, so the
   // parcels and the delivery total are always the server's own.
-  const plan = planFulfilment({ lines, locations, city, settings, fulfil: fulfill === "collect" ? "collect" : "delivery" });
+  const plan = planFulfilment({ lines, locations, city, settings, fulfil: collect ? "collect" : "delivery", local: where.local });
   if (plan.mode === "unavailable") {
     const what = plan.unavailable.map((u) => `${u.name} (${u.size})`).join(", ");
     return c.json({
@@ -734,15 +767,19 @@ shop.post("/orders", async (c) => {
 
   const statements = [
     db.prepare(
-      `INSERT INTO orders (no, customer, phone, email, city, address, fulfilled_from, method, pay, pay_status, status,
+      `INSERT INTO orders (no, customer, phone, email, city, address, delivery_area, delivery_zone, fulfilled_from, method, pay, pay_status, status,
         promo_code, reward_code, subtotal, discount, shipping, total, all_in_city, placed_at,
         src_source, src_medium, src_campaign, src_click, src_click_id, src_referrer, src_landing, src_fbc, src_fbp,
         ad_consent, capi_ip, capi_ua)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'Processing', ?, ?, ?, ?, ?, ?, ?, datetime('now'),
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'Processing', ?, ?, ?, ?, ?, ?, ?, datetime('now'),
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       no, customer.name.trim(), customer.phone.trim(), (customer.email || "").trim(), city,
-      (customer.address || "").trim(), loc, method, payLabels[pay] || "Paystack",
+      (customer.address || "").trim(),
+      // As priced: the area and the zone it was in, kept as text so a zone
+      // edited later doesn't rewrite what this order was charged for.
+      collect ? "" : where.label, collect ? "" : where.zone,
+      loc, method, payLabels[pay] || "Paystack",
       promo ? promo.code : null, reward ? reward.code : null,
       subtotal, discount, shipping, total, allInCity ? 1 : 0,
       src.source, src.medium, src.campaign, src.click, src.clickId, src.referrer, src.landing, src.fbc, src.fbp,
@@ -832,7 +869,9 @@ shop.post("/orders", async (c) => {
     pay: payLabels[pay],
     payKey: pay,
     method,
-    deliverTo: fulfill === "collect" ? `${fromLoc.store}, ${fromLoc.address}` : (customer.address || "").trim(),
+    deliverTo: fulfill === "collect"
+      ? `${fromLoc.store}, ${fromLoc.address}`
+      : [(customer.address || "").trim(), where.area ? where.label : ""].filter(Boolean).join(", "),
     eta: fulfill === "collect"
       ? "Ready in about 3 hours"
       : [...new Set(plan.shipments.map((s) => s.eta))].join(" · "),

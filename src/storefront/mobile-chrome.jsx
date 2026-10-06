@@ -16,6 +16,7 @@
 // shopper opened closes with the phone's own back gesture (App.jsx).
 import React, { useState } from "react";
 import { catTree, countIn } from "../lib/categories.js";
+import { cheapestFee } from "../lib/delivery.js";
 import { ImageSlot } from "../ds/components.jsx";
 import { AnnouncementBar, ConsentBanner, LeaveNudge, ChatWidget, PurchaseProof } from "./chrome.jsx";
 import { footerColumns } from "./footer-links.js";
@@ -387,7 +388,7 @@ function CitySheet({ ctx, close }) {
               <Radio on={on} />
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: "block", fontSize: 15, fontWeight: 600, color: "var(--text-strong)" }}>{l.city}</span>
-                <span style={{ display: "block", fontSize: 12.5, lineHeight: 1.45, color: "var(--text-muted)", marginTop: 2 }}>{[l.eta && `Delivery ${l.eta}`, `from ${ctx.fmt(l.shipNGN || 0)}`].filter(Boolean).join(" ")} · {l.store}</span>
+                <span style={{ display: "block", fontSize: 12.5, lineHeight: 1.45, color: "var(--text-muted)", marginTop: 2 }}>{[l.eta && `Delivery ${l.eta}`, `from ${ctx.fmt(cheapestFee(l))}`].filter(Boolean).join(" ")} · {l.store}</span>
               </span>
               {I.chevRight(15)}
             </button>

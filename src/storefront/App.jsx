@@ -16,6 +16,7 @@ import { headFor, setHead, setGscVerification } from "./seo.js";
 import { getConsent, setConsent, startAnalytics, track as trackEvent } from "./analytics.js";
 import { startTracking, record as mrRecord, setCity as mrSetCity, optedOut, setOptOut, visitorId, noteViewed, recentlyViewed, clearRecent } from "./track.js";
 import { captureAttribution, attributionForOrder } from "./attribution.js";
+import { OTHER_AREA, localRate, feeFor, pickArea, cheapestFee, cityFreeOver } from "../lib/delivery.js";
 
 const SCOPE_CATS = {
   Storewide: null,
@@ -63,7 +64,9 @@ export default function App() {
   // Ordinarily the breakdown sits directly above the pay button and pressing it
   // is the agreement — this is the second ask when the two disagree.
   const [reconfirm, setReconfirm] = useState(false);
-  const [co, setCo] = useState({ name: "", email: "", phone: "", address: "", fulfill: "delivery", pay: "paystack", promo: "" });
+  // `area` is the delivery area picked at checkout (an id, OTHER_AREA, or "") —
+  // asked for only in a city the house has zoned (src/lib/delivery.js).
+  const [co, setCo] = useState({ name: "", email: "", phone: "", address: "", area: "", fulfill: "delivery", pay: "paystack", promo: "" });
   const [promoInfo, setPromoInfo] = useState(null); // { code, kind, value, scope: desc, freeShip } from validate
   const [promoMsg, setPromoMsg] = useState("");
   const [coErr, setCoErr] = useState("");
@@ -445,6 +448,22 @@ export default function App() {
   const payMethods = useMemo(() => (D && D.pay ? D.pay : { paystack: true, transfer: true, whatsapp: true }), [D]);
   const L = useMemo(() => locations.find((l) => l.id === city) || null, [locations, city]);
   const cityName = cap(city);
+  // The city's delivery areas — empty where one fee covers the whole city.
+  const areas = useMemo(() => (L && L.areas) || EMPTY_ARR, [L]);
+
+  // The area belongs to a city, so a new city starts without one — unless this
+  // browser has picked an area there before and it is still on the list.
+  useEffect(() => {
+    if (!L) return;
+    let saved = "";
+    try { saved = localStorage.getItem(`mr-area:${L.id}`) || ""; } catch { /* private mode */ }
+    const ok = saved === OTHER_AREA ? L.unlistedArea !== false : (L.areas || []).some((a) => String(a.id) === saved);
+    setCo((s) => ({ ...s, area: ok ? saved : "" }));
+  }, [L]);
+  const setArea = useCallback((area) => {
+    setCo((s) => ({ ...s, area }));
+    try { if (L) localStorage.setItem(`mr-area:${L.id}`, area); } catch { /* private mode */ }
+  }, [L]);
 
   const fmt = useCallback((ngn) => fmtCurrency(ngn, currency, settings.ngnPerUsd || 1550), [currency, settings.ngnPerUsd]);
   const catLabel = useCallback((id) => (categories.find((c) => c.id === id) || {}).label || "", [categories]);
@@ -596,7 +615,7 @@ export default function App() {
 
   // Cart derivation (subtotal, shipping, discount, routing)
   const cc = useMemo(() => {
-    if (!D) return { items: [], sub: 0, ship: 0, allInCity: true, discount: 0, total: 0 };
+    if (!D) return { items: [], sub: 0, ship: 0, allInCity: true, discount: 0, total: 0, shipPending: false, shipFrom: 0, areaLabel: "", freeOverHere: 0, areaFee: 0 };
     let sub = 0;
     let allInCity = true;
     const lines = [];
@@ -639,18 +658,23 @@ export default function App() {
     // Delivery is the server's number once the fulfilment quote lands — a split
     // order pays per parcel, and only the server knows how it splits. Until
     // then this is an estimate so the summary is never blank.
+    //
+    // In a zoned city the fee depends on the area, so until one is picked
+    // there is no fee to show: `shipPending` says so, and `shipFrom` is the
+    // cheapest it could be.
+    const picked = pickArea({ areaId: co.area, areas: L ? L.areas || [] : [], allowUnlisted: !L || L.unlistedArea !== false });
+    const rate = L ? localRate({ cityId: city, standardFee: L.shipNGN, standardEta: L.eta, area: picked.area, settings }) : null;
+    const shipPending = co.fulfill !== "collect" && !!picked.error;
     let ship;
-    const freeOver = settings.freeShipAbujaOver ?? 100000;
-    const freeHere = city === (settings.freeShipCity ?? "abuja") && allInCity;
-    if (co.fulfill === "collect") ship = 0;
-    else if (plan && plan.mode !== "unavailable") ship = plan.shipTotal;
-    else {
-      ship = allInCity ? (L ? L.shipNGN : 2500) : (settings.crossCityShipNGN ?? 4500);
-      if (freeHere && sub >= freeOver) ship = 0;
-    }
+    if (co.fulfill === "collect" || shipPending) ship = 0;
+    else if (plan && plan.mode !== "unavailable" && !plan.areaNeeded) ship = plan.shipTotal;
+    else ship = allInCity ? (rate ? feeFor(rate, sub) : 2500) : (settings.crossCityShipNGN ?? 4500);
     // Free delivery has been enforced since the beginning and never once shown
     // to the person it would move. How much more, and how far along they are.
-    const freeShip = freeHere && freeOver > 0 && co.fulfill !== "collect"
+    // Before an area is picked, only a line every area shares is promised.
+    const freeOverHere = picked.error ? cityFreeOver(L, settings) : rate ? rate.freeOver : 0;
+    const freeOver = allInCity ? freeOverHere : 0;
+    const freeShip = freeOver > 0 && co.fulfill !== "collect"
       ? { over: freeOver, remaining: Math.max(0, freeOver - sub), pct: Math.min(100, Math.round((sub / freeOver) * 100)) }
       : null;
     // A preview of the code's worth, recomputed as the cart changes so the
@@ -674,8 +698,30 @@ export default function App() {
       }
       if (promoInfo.freeShip) ship = 0;
     }
-    return { items, sub, ship, allInCity, discount, freeShip, total: sub - discount + ship };
-  }, [D, cart, city, co.fulfill, promoInfo, products, L, settings, fmt, cityName, bestAlt, plan]);
+    return {
+      items, sub, ship, allInCity, discount, freeShip, total: sub - discount + ship,
+      shipPending, shipFrom: L ? cheapestFee(L) : 0, areaLabel: picked.area ? picked.area.name : "", freeOverHere,
+      // The fee to the shopper's area (or the city's standard fee) on its own,
+      // whatever the cart holds — for lines about one product.
+      areaFee: rate ? rate.fee : 0,
+    };
+  }, [D, cart, city, co.fulfill, co.area, promoInfo, products, L, settings, fmt, cityName, bestAlt, plan]);
+
+  // The checkout's area dropdown. Each area says what delivery there costs for
+  // this cart — when it all comes from the shopper's own store; a parcel from
+  // another city pays the cross-city rate wherever it is going, so then the
+  // names stand alone.
+  const areaOptions = useMemo(() => {
+    if (!L || !areas.length) return EMPTY_ARR;
+    const price = (area) => {
+      if (!cc.allInCity) return "";
+      const fee = feeFor(localRate({ cityId: L.id, standardFee: L.shipNGN, standardEta: L.eta, area, settings }), cc.sub);
+      return ` — ${fee === 0 ? "Free" : fmt(fee)}`;
+    };
+    const opts = areas.map((a) => ({ value: String(a.id), label: a.name + price(a) }));
+    if (L.unlistedArea !== false) opts.push({ value: OTHER_AREA, label: `Somewhere else in ${cityName}${price(null)}` });
+    return opts;
+  }, [L, areas, cc.allInCity, cc.sub, settings, fmt, cityName]);
 
   // Ask the server where this cart ships from. Runs on the checkout page, and
   // again whenever the cart, the city or the fulfilment choice changes — the
@@ -686,7 +732,7 @@ export default function App() {
     setPlanning(true);
     const t = setTimeout(() => {
       api.post("/api/fulfilment/quote", {
-        city, fulfill: co.fulfill,
+        city, fulfill: co.fulfill, area: co.area,
         items: cart.map((c) => ({ productId: c.id, variantId: c.variantId, sku: c.sku, size: c.size, qty: c.qty })),
       })
         .then((r) => { if (live) setPlan(r.plan); })
@@ -694,10 +740,10 @@ export default function App() {
         .finally(() => { if (live) setPlanning(false); });
     }, 200);
     return () => { live = false; clearTimeout(t); };
-  }, [page, cart, city, co.fulfill]);
+  }, [page, cart, city, co.fulfill, co.area]);
 
   // Any change to what is being shipped withdraws a previous agreement.
-  useEffect(() => { setReconfirm(false); }, [cart, city, co.fulfill]);
+  useEffect(() => { setReconfirm(false); }, [cart, city, co.fulfill, co.area]);
 
   // Card is the default, but it is only real when a gateway key is configured.
   // If it isn't, move the selection to something the server will accept rather
@@ -919,6 +965,7 @@ export default function App() {
   const placeOrder = useCallback(async () => {
     if (!co.name.trim()) return setCoErr("Enter your name.");
     if (!co.phone.trim()) return setCoErr("Enter your phone number.");
+    if (co.fulfill === "delivery" && cc.shipPending) return setCoErr("Choose your delivery area.");
     if (co.fulfill === "delivery" && !co.address.trim()) return setCoErr("Enter a delivery address.");
     if (co.pay === "paystack" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(co.email.trim()))
       return setCoErr("Enter a valid email address for your receipt.");
@@ -928,6 +975,7 @@ export default function App() {
       const r = await api.post("/api/orders", {
         customer: { name: co.name, phone: co.phone, email: co.email, address: co.address },
         city, fulfill: co.fulfill, pay: co.pay,
+        area: co.fulfill === "delivery" ? co.area : "",
         promo: promoInfo ? promoInfo.code : "",
         items: cart.map((c) => ({ productId: c.id, variantId: c.variantId, sku: c.sku, size: c.size, qty: c.qty })),
         // The delivery breakdown is shown directly above the button, so pressing
@@ -968,7 +1016,7 @@ export default function App() {
     } finally {
       setPlacing(false);
     }
-  }, [co, city, cart, promoInfo, plan, reconfirm, settings.contactPhone, nav, consent]);
+  }, [co, cc.shipPending, city, cart, promoInfo, plan, reconfirm, settings.contactPhone, nav, consent]);
 
   // Finish paying for an order that was placed but never settled — from the
   // confirmation screen or from order tracking.
@@ -1049,6 +1097,9 @@ export default function App() {
   const ctx = {
     D, settings, locations, products, categories, page, nav, isMobile,
     city, cityName, L,
+    // Delivery areas in the shopper's city, the dropdown built from them, and
+    // the free-delivery line that holds for this shopper (0: none promised).
+    areas, areaOptions, setArea, freeOverHere: cc.freeOverHere,
     setCityConfirmed: (c) => {
       try { localStorage.setItem("mr-city", c); localStorage.setItem("mr-city-ok", "1"); } catch {}
       setCity(c);

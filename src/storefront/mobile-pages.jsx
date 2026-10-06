@@ -173,8 +173,9 @@ function MobileBlock({ block, ctx, vars, runningDeal }) {
       // the shopper's city has a threshold, because it is the one that moves a
       // basket.
       const reward = settings.rewardsOn;
-      const freeOver = settings.freeShipAbujaOver ?? 100000;
-      const freeHere = ctx.city === (settings.freeShipCity ?? "abuja") && freeOver > 0;
+      // Only a line that holds wherever in the city the shopper is.
+      const freeOver = ctx.freeOverHere;
+      const freeHere = freeOver > 0;
       const perks = [
         freeHere
           ? { icon: I.truck(18), t: "Free Delivery", s: `Orders over ${ctx.fmt(freeOver)}` }
@@ -661,8 +662,8 @@ export function MobileProduct({ ctx }) {
   const cartCount = ctx.cart.reduce((n, x) => n + x.qty, 0);
   const brandSlug = (pr.brand || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const reward = rewardLine(ctx);
-  const freeOver = ctx.settings.freeShipAbujaOver ?? 100000;
-  const freeHere = ctx.city === (ctx.settings.freeShipCity ?? "abuja") && freeOver > 0;
+  const freeOver = ctx.freeOverHere;
+  const freeHere = freeOver > 0;
 
   const selectVariant = (v) => {
     ctx.setPrVariantId(v.id);
@@ -768,7 +769,7 @@ export function MobileProduct({ ctx }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-strong)" }}>Delivery to {ctx.cityName}</div>
             <div style={{ fontSize: 12.5, color: "var(--text-body)", paddingTop: 2 }}>
-              {a.inCity ? `${L ? ctx.fmt(L.shipNGN) : ""}${L && L.eta ? ` · arrives in ${L.eta}` : ""}` : alt ? `Ships from ${alt.city} · 3–5 days` : "Out of stock in every store right now"}
+              {a.inCity ? `${L ? deliveryFrom(ctx) : ""}${L && L.eta ? ` · arrives in ${L.eta}` : ""}` : alt ? `Ships from ${alt.city} · 3–5 days` : "Out of stock in every store right now"}
             </div>
             {freeHere && <div style={{ fontSize: 12, color: "var(--text-muted)", paddingTop: 2 }}>FREE delivery on orders over {ctx.fmt(freeOver)}</div>}
           </div>
@@ -877,7 +878,7 @@ export function CartPage({ ctx }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "4px 2px 0", fontSize: 14 }}>
             {row("Subtotal", ctx.fmt(cc.sub))}
             {cc.discount > 0 && row(ctx.promoInfo ? ctx.promoInfo.code : "Discount", "−" + ctx.fmt(cc.discount), "#3f6b45")}
-            {row(`Delivery to ${ctx.cityName}`, ctx.co.fulfill === "collect" || cc.ship === 0 ? "Free" : ctx.fmt(cc.ship))}
+            {row(`Delivery to ${cc.areaLabel || ctx.cityName}`, ctx.co.fulfill === "collect" ? "Free" : cc.shipPending ? `From ${ctx.fmt(cc.shipFrom)}` : cc.ship === 0 ? "Free" : ctx.fmt(cc.ship))}
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{ctx.L && ctx.L.eta && cc.allInCity ? `Arrives ${ctx.L.eta} · ` : ""}pick Click &amp; collect at checkout for free pickup</div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 600, color: "var(--text-strong)", borderTop: "1px solid var(--border-hairline)", paddingTop: 10 }}><span>Total</span><span>{ctx.fmt(cc.total)}</span></div>
             {rewardLine(ctx) && <div style={{ fontSize: 12.5, color: "var(--mr-purple-700)" }}>{rewardLine(ctx).replace("when you order", "with this order")}.</div>}
@@ -939,6 +940,16 @@ function PromoBox({ ctx }) {
   );
 }
 
+// What delivery in the shopper's city costs before checkout: the fee for the
+// area they picked last time, or "from" the cheapest area when there are
+// several to choose from.
+function deliveryFrom(ctx) {
+  const { cc, L } = ctx;
+  if (!L) return "";
+  if (!(L.areas || []).length) return ctx.fmt(L.shipNGN);
+  return cc.shipPending ? `From ${ctx.fmt(cc.shipFrom)}` : `${ctx.fmt(cc.areaFee)} to ${cc.areaLabel || ctx.cityName}`;
+}
+
 // ---- Checkout -------------------------------------------------------------
 
 export function MobileCheckout({ ctx }) {
@@ -962,17 +973,20 @@ export function MobileCheckout({ ctx }) {
     { id: "transfer", label: "Bank transfer", note: "Held for 2 hours" },
     { id: "whatsapp", label: "Order on WhatsApp", note: "Confirm your order with us in chat" },
   ].filter((p) => ctx.payMethods[p.id]);
-  const shipEst = cc.freeShip && cc.freeShip.remaining === 0 ? "Free" : L ? ctx.fmt(L.shipNGN) : "";
+  const shipEst = cc.freeShip && cc.freeShip.remaining === 0 ? "Free" : !L ? "" : cc.shipPending ? `From ${ctx.fmt(cc.shipFrom)}` : cc.ship === 0 ? "Free" : ctx.fmt(cc.ship);
   const fulfilOpts = [
     { id: "delivery", label: "Delivery", sub: [shipEst, L && L.eta].filter(Boolean).join(" · ") },
     { id: "collect", label: "Click & collect", sub: `Free${L ? ` · ${L.store}` : ""}` },
   ];
+  // Until an area is picked the total has no delivery in it yet — say so
+  // rather than show a number that grows once they choose.
+  const totalLabel = ctx.fmt(cc.total) + (cc.shipPending ? " + delivery" : "");
   const payLabel = ctx.placing ? "Working…"
-    : ctx.reconfirm ? `Confirm and pay ${ctx.fmt(cc.total)}`
-      : co.pay === "whatsapp" ? `Send Order on WhatsApp · ${ctx.fmt(cc.total)}`
-        : co.pay === "transfer" ? `Place Order · ${ctx.fmt(cc.total)}` : `Pay Securely · ${ctx.fmt(cc.total)}`;
+    : ctx.reconfirm ? `Confirm and pay ${totalLabel}`
+      : co.pay === "whatsapp" ? `Send Order on WhatsApp · ${totalLabel}`
+        : co.pay === "transfer" ? `Place Order · ${totalLabel}` : `Pay Securely · ${totalLabel}`;
   const payNote = co.pay === "paystack" ? "Secured by Paystack" : co.pay === "transfer" ? "We hold your order for 2 hours" : "We'll confirm it with you in chat";
-  const shipValue = ctx.planning && !plan ? "—" : cc.ship === 0 ? "Free" : ctx.fmt(cc.ship);
+  const shipValue = cc.shipPending ? "Choose area" : ctx.planning && !plan ? "—" : cc.ship === 0 ? "Free" : ctx.fmt(cc.ship);
   const box = { ...card16, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10 };
   const secTitle = { fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text-strong)" };
   const label = { display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5, color: "var(--text-body)" };
@@ -1006,7 +1020,7 @@ export function MobileCheckout({ ctx }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, borderTop: "1px solid var(--border-strong)", paddingTop: 8 }}>
               {row("Subtotal", ctx.fmt(cc.sub))}
               {cc.discount > 0 && row(ctx.promoInfo ? ctx.promoInfo.code : "Discount", "−" + ctx.fmt(cc.discount), "#3f6b45")}
-              {row(co.fulfill === "collect" ? "Collection" : split ? `Delivery (${plan.deliveries.length})` : "Delivery", shipValue)}
+              {row(co.fulfill === "collect" ? "Collection" : split ? `Delivery (${plan.deliveries.length})` : cc.areaLabel ? `Delivery to ${cc.areaLabel}` : "Delivery", shipValue)}
             </div>
           </div>
         )}
@@ -1038,6 +1052,20 @@ export function MobileCheckout({ ctx }) {
         </button>
         {co.fulfill === "delivery" ? (
           <>
+            {/* In a city the house has zoned, the area sets the fee — so it
+                comes first, and the address is the street within it. */}
+            {ctx.areaOptions.length > 0 && (
+              <label style={label}>Area
+                <span style={{ position: "relative", display: "flex" }}>
+                  <select value={co.area} onChange={(e) => ctx.setArea(e.target.value)}
+                    style={{ ...field, appearance: "none", paddingRight: 36, cursor: "pointer", color: co.area ? "var(--text-strong)" : "var(--text-muted)" }}>
+                    <option value="" disabled>Choose your area in {ctx.cityName}…</option>
+                    {ctx.areaOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex", color: "var(--mr-purple-700)" }}>{I.chevDown(14)}</span>
+                </span>
+              </label>
+            )}
             <label style={label}>Delivery address
               <textarea value={co.address} onChange={(e) => set({ address: e.target.value })} rows={3} autoComplete="street-address" placeholder="House number, street, area" style={{ ...field, height: "auto", padding: "12px 14px", resize: "none" }} />
             </label>
@@ -1092,7 +1120,7 @@ export function MobileCheckout({ ctx }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 2px", fontSize: 14 }}>
         {row("Subtotal", ctx.fmt(cc.sub))}
         {cc.discount > 0 && row(ctx.promoInfo ? ctx.promoInfo.code : "Discount", "−" + ctx.fmt(cc.discount), "#3f6b45")}
-        {row(co.fulfill === "collect" ? "Collection" : split ? `Delivery (${plan.deliveries.length})` : "Delivery", shipValue)}
+        {row(co.fulfill === "collect" ? "Collection" : split ? `Delivery (${plan.deliveries.length})` : cc.areaLabel ? `Delivery to ${cc.areaLabel}` : "Delivery", shipValue)}
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 600, color: "var(--text-strong)", borderTop: "1px solid var(--border-hairline)", paddingTop: 10 }}><span>Total</span><span>{ctx.fmt(cc.total)}</span></div>
         {rewardLine(ctx) && <div style={{ fontSize: 12.5, color: "var(--mr-purple-700)" }}>{rewardLine(ctx).replace("when you order", "with this order")}.</div>}
       </div>
