@@ -134,8 +134,10 @@ export function Dashboard({ ctx }) {
                 <React.Fragment key={or.no}>
                   <div style={{ ...cell, paddingLeft: 22, fontWeight: 600, color: "var(--mr-purple-800)" }}>{or.no}</div>
                   <div style={cell}>
-                    <div style={{ color: "var(--text-strong)" }}>{or.customer}<span style={{ color: "var(--text-muted)" }}> · {or.city}</span></div>
+                    <div style={{ color: "var(--text-strong)" }}>{or.customer}<span style={{ color: "var(--text-muted)" }}> · {or.area ? `${or.area}, ` : ""}{or.city}</span></div>
                     <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{or.phone} · {or.email}</div>
+                    {/* Where the rider is going — the street, under the area it was priced for. */}
+                    {or.method === "Delivery" && or.address && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{or.address}</div>}
                     {/* Something extra to pack: the sign-up gift. */}
                     {or.gift && <div style={{ display: "inline-block", marginTop: 5, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: "var(--radius-pill)", background: "var(--mr-gold-200)", color: "var(--mr-gold-600)" }}>🎁 {or.gift}</div>}
                   </div>

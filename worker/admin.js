@@ -22,6 +22,7 @@ import { erpStatus, erpPing, erpProbe, erpReadSpec, erpPull, erpSyncWarehouses, 
 import { emailConfig, sendEmail } from "./email.js";
 import { mountAdminReviews } from "./reviews.js";
 import { releaseSignupPerk } from "./signup.js";
+import { loadZones, cleanZone, setZoneAreas } from "./delivery.js";
 
 const randHex = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -312,6 +313,8 @@ admin.get("/overview", async (c) => {
     locations: locations.map((l) => ({ id: l.id, city: l.city, store: l.store, active: !!l.active })),
     orders: orders.map((o) => ({
       no: o.no, customer: o.customer, phone: o.phone, email: o.email, city: o.city,
+      // Where the rider is going: the area picked at checkout, and the address.
+      area: o.delivery_area || "", address: o.address || "",
       fulfilledFrom: o.fulfilled_from, method: o.method, pay: o.pay, payStatus: o.pay_status,
       // Where the buyer came from: "Meta ads", "Instagram", "Direct"…
       source: channelOf(o), campaign: o.src_campaign || "",
@@ -1039,6 +1042,7 @@ const locationOut = (l) => ({
   id: l.id, city: l.city, store: l.store, address: l.address, eta: l.eta, phone: l.phone,
   hours: l.hours || "", mapsUrl: l.maps_url || "",
   shipNGN: l.ship_ngn, shipUSD: l.ship_usd, sort: l.sort, active: !!l.active,
+  unlistedArea: l.unlisted_area !== 0,
 });
 
 admin.get("/settings", async (c) => {
@@ -1234,9 +1238,114 @@ admin.delete("/locations/:id", requireSuper, async (c) => {
   await db.batch([
     db.prepare("DELETE FROM stock WHERE location_id=?").bind(id),
     db.prepare("UPDATE admin_users SET active=0 WHERE scope=?").bind(id),
+    db.prepare("DELETE FROM delivery_areas WHERE location_id=?").bind(id),
+    db.prepare("DELETE FROM delivery_zones WHERE location_id=?").bind(id),
     db.prepare("DELETE FROM locations WHERE id=?").bind(id),
   ]);
   return c.json({ ok: true, deleted: true });
+});
+
+// ---- Delivery zones ----
+//
+// A city's areas grouped into fee bands, so delivery to Karu can cost more than
+// delivery to Wuse (src/lib/delivery.js has the rules). A super admin can price
+// any city; a store manager prices their own, since they know where their
+// riders go and what it costs.
+function mayPrice(c, locationId) {
+  const a = c.get("admin");
+  return a.role === "super" || a.scope === locationId;
+}
+
+admin.get("/delivery", async (c) => {
+  const db = c.env.DB;
+  const settings = await getSettings(db);
+  const zones = await loadZones(db);
+  return c.json({
+    rules: {
+      freeShipCity: settings.freeShipCity ?? "abuja",
+      freeShipAbujaOver: settings.freeShipAbujaOver ?? 100000,
+      crossCityShipNGN: settings.crossCityShipNGN ?? 4500,
+      crossCityEta: settings.crossCityEta || "3–5 days",
+    },
+    locations: (await allLocations(db)).map((l) => ({
+      ...locationOut(l),
+      zones: zones.filter((z) => z.locationId === l.id),
+    })),
+  });
+});
+
+// The store's own terms, as far as delivery goes: the standard fee (an unzoned
+// city, or an area that isn't listed), its delivery time, and whether an
+// unlisted area may order at all.
+admin.patch("/delivery/locations/:id", async (c) => {
+  const id = c.req.param("id");
+  const db = c.env.DB;
+  if (!mayPrice(c, id)) return c.json({ error: "You can only set delivery for your own store." }, 403);
+  if (!(await db.prepare("SELECT id FROM locations WHERE id=?").bind(id).first())) return c.json({ error: "No such store." }, 404);
+  const b = await c.req.json();
+  const sets = [], vals = [];
+  if (b.unlistedArea !== undefined) { sets.push("unlisted_area=?"); vals.push(b.unlistedArea ? 1 : 0); }
+  if (b.shipNGN !== undefined) {
+    const fee = Number(String(b.shipNGN).replace(/[₦,\s]/g, ""));
+    if (!Number.isFinite(fee) || fee < 0) return c.json({ error: "Enter the standard fee in naira." }, 400);
+    sets.push("ship_ngn=?"); vals.push(Math.round(fee));
+  }
+  if (b.eta !== undefined) { sets.push("eta=?"); vals.push(String(b.eta).trim().slice(0, 40) || "1–2 days"); }
+  if (!sets.length) return c.json({ ok: true });
+  await db.prepare(`UPDATE locations SET ${sets.join(", ")} WHERE id=?`).bind(...vals, id).run();
+  return c.json({ ok: true });
+});
+
+admin.post("/delivery/zones", async (c) => {
+  const db = c.env.DB;
+  const b = await c.req.json();
+  const locationId = String(b.locationId || "");
+  if (!mayPrice(c, locationId)) return c.json({ error: "You can only set delivery for your own store." }, 403);
+  if (!(await db.prepare("SELECT id FROM locations WHERE id=?").bind(locationId).first())) return c.json({ error: "Choose a store." }, 400);
+  const { zone, error } = cleanZone(b);
+  if (error) return c.json({ error }, 400);
+  if (await db.prepare("SELECT id FROM delivery_zones WHERE location_id=? AND name=? COLLATE NOCASE").bind(locationId, zone.name).first())
+    return c.json({ error: `There is already a zone called "${zone.name}" here.` }, 400);
+  const last = await db.prepare("SELECT COALESCE(MAX(sort),0) AS s FROM delivery_zones WHERE location_id=?").bind(locationId).first();
+  const r = await db.prepare(
+    "INSERT INTO delivery_zones (location_id, name, fee_ngn, eta, free_over_ngn, active, sort) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).bind(locationId, zone.name, zone.fee, zone.eta, zone.freeOver, zone.active ?? 1, last.s + 1).run();
+  const id = r.meta.last_row_id;
+  const moved = await setZoneAreas(db, id, locationId, zone.areas || []);
+  return c.json({ ok: true, id, moved });
+});
+
+admin.patch("/delivery/zones/:id", async (c) => {
+  const db = c.env.DB;
+  const id = parseInt(c.req.param("id"), 10);
+  const row = await db.prepare("SELECT * FROM delivery_zones WHERE id=?").bind(id).first();
+  if (!row) return c.json({ error: "No such zone." }, 404);
+  if (!mayPrice(c, row.location_id)) return c.json({ error: "You can only set delivery for your own store." }, 403);
+  const { zone, error } = cleanZone(await c.req.json(), { partial: true });
+  if (error) return c.json({ error }, 400);
+  if (zone.name && await db.prepare("SELECT id FROM delivery_zones WHERE location_id=? AND name=? COLLATE NOCASE AND id<>?").bind(row.location_id, zone.name, id).first())
+    return c.json({ error: `There is already a zone called "${zone.name}" here.` }, 400);
+  const map = { name: "name", fee: "fee_ngn", eta: "eta", freeOver: "free_over_ngn", active: "active" };
+  const sets = ["updated_at=datetime('now')"], vals = [];
+  for (const [k, col] of Object.entries(map)) if (zone[k] !== undefined) { sets.push(`${col}=?`); vals.push(zone[k]); }
+  await db.prepare(`UPDATE delivery_zones SET ${sets.join(", ")} WHERE id=?`).bind(...vals, id).run();
+  const moved = zone.areas ? await setZoneAreas(db, id, row.location_id, zone.areas) : [];
+  return c.json({ ok: true, moved });
+});
+
+// Orders keep the area and zone they were priced at as text, so a zone can go
+// without touching anything already sold.
+admin.delete("/delivery/zones/:id", async (c) => {
+  const db = c.env.DB;
+  const id = parseInt(c.req.param("id"), 10);
+  const row = await db.prepare("SELECT * FROM delivery_zones WHERE id=?").bind(id).first();
+  if (!row) return c.json({ error: "No such zone." }, 404);
+  if (!mayPrice(c, row.location_id)) return c.json({ error: "You can only set delivery for your own store." }, 403);
+  await db.batch([
+    db.prepare("DELETE FROM delivery_areas WHERE zone_id=?").bind(id),
+    db.prepare("DELETE FROM delivery_zones WHERE id=?").bind(id),
+  ]);
+  return c.json({ ok: true });
 });
 
 // ---- Collections (curated sets shown above the catalogue) ----

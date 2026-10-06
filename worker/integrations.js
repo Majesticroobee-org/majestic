@@ -48,7 +48,7 @@ async function readOrder(env, no) {
   const o = await env.DB.prepare("SELECT * FROM orders WHERE no=?").bind(String(no).toUpperCase()).first();
   if (!o) return null;
   const items = (await env.DB.prepare("SELECT product_id, name, size, qty, unit_ngn FROM order_items WHERE order_no=?").bind(o.no).all()).results;
-  return { no: o.no, customer: o.customer, phone: o.phone, email: o.email, city: o.city, fulfilledFrom: o.fulfilled_from, method: o.method, pay: o.pay, paid: o.pay_status === "paid", status: o.status, subtotal: o.subtotal, discount: o.discount, shipping: o.shipping, total: o.total, items };
+  return { no: o.no, customer: o.customer, phone: o.phone, email: o.email, city: o.city, deliveryArea: o.delivery_area || "", fulfilledFrom: o.fulfilled_from, method: o.method, pay: o.pay, paid: o.pay_status === "paid", status: o.status, subtotal: o.subtotal, discount: o.discount, shipping: o.shipping, total: o.total, items };
 }
 
 // ---- ERP catalogue sync ----

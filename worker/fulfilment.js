@@ -9,19 +9,26 @@
 // Everything here is pure so the quote the shopper sees and the plan the order
 // is written from come out of the same function — a split the buyer accepted
 // can't turn into a different split at checkout.
+import { localRate, feeFor } from "../src/lib/delivery.js";
 
-// Delivery price for one parcel: the store's own rate when it is the buyer's
-// city, the cross-city rate otherwise.
-function parcelShip(locationId, city, locations, settings) {
-  const loc = locations.find((l) => l.id === locationId);
-  if (locationId === city) return loc ? loc.ship_ngn : 2500;
+// Delivery price for one parcel: the buyer's own store charges by the area they
+// are in (`local`, see src/lib/delivery.js); a parcel from another city pays
+// the cross-city rate, wherever in the city it is going.
+function parcelShip(locationId, city, local, settings, value) {
+  if (locationId === city) return feeFor(local, value);
   return settings.crossCityShipNGN ?? 4500;
 }
 
-function parcelEta(locationId, city, locations, settings) {
-  const loc = locations.find((l) => l.id === locationId);
-  if (locationId === city) return loc ? loc.eta : "1–2 days";
+function parcelEta(locationId, city, local, settings) {
+  if (locationId === city) return local.eta || "1–2 days";
   return settings.crossCityEta || "3–5 days";
+}
+
+// The buyer's own store's rate when no area was given: its standard fee, and
+// the house-wide free-delivery rule.
+function standardRate(city, locations, settings) {
+  const loc = locations.find((l) => l.id === city);
+  return localRate({ cityId: city, standardFee: loc ? loc.ship_ngn : 2500, standardEta: loc ? loc.eta : "1–2 days", settings });
 }
 
 // Stores in the order we would rather use: the buyer's city, then the rest by
@@ -39,14 +46,18 @@ const holds = (line, locId) => (line.variant.stock[locId] || 0) >= line.qty;
  * @param city      the buyer's chosen city
  * @param settings  site settings (cross-city rate/eta, free-delivery threshold)
  * @param fulfil    "delivery" | "collect"
+ * @param local     the rate inside the buyer's city for the area they picked —
+ *                  { fee, eta, freeOver } from localRate(). Defaults to the
+ *                  store's standard fee when the city has no zones.
  * @returns {
  *   mode: "single" | "split" | "unavailable",
  *   shipments: [{ locationId, store, city, eta, ship, items: [{ productId, name, size, qty }] }],
  *   shipTotal, primary, unavailable: [{ name, size, qty }], needsConfirmation
  * }
  */
-export function planFulfilment({ lines, locations, city, settings = {}, fulfil = "delivery" }) {
+export function planFulfilment({ lines, locations, city, settings = {}, fulfil = "delivery", local = null }) {
   const order = preference(city, locations);
+  const rate = local || standardRate(city, locations, settings);
   const sub = lines.reduce((n, l) => n + l.variant.ngn * l.qty, 0);
 
   // Click & collect only works if the buyer's own store holds everything —
@@ -69,13 +80,12 @@ export function planFulfilment({ lines, locations, city, settings = {}, fulfil =
   // 1 & 2 — a single store that holds everything, buyer's city first.
   const whole = order.find((locId) => lines.every((l) => holds(l, locId)));
   if (whole) {
-    let ship = parcelShip(whole, city, locations, settings);
-    if (whole === city && city === (settings.freeShipCity ?? "abuja") && sub >= (settings.freeShipAbujaOver ?? 100000)) ship = 0;
+    const ship = parcelShip(whole, city, rate, settings, sub);
     return {
       mode: "single", shipTotal: ship, primary: whole, needsConfirmation: false, unavailable: [],
       shipments: [{
         locationId: whole, ...storeLabels(whole, locations),
-        eta: parcelEta(whole, city, locations, settings), ship, items: lines.map(itemOf),
+        eta: parcelEta(whole, city, rate, settings), ship, items: lines.map(itemOf),
       }],
     };
   }
@@ -109,13 +119,12 @@ export function planFulfilment({ lines, locations, city, settings = {}, fulfil =
     .map((locId, i) => {
       const parcelLines = byLocation.get(locId);
       const parcelSub = parcelLines.reduce((n, l) => n + l.variant.ngn * l.qty, 0);
-      let ship = parcelShip(locId, city, locations, settings);
       // The free-delivery threshold is a promise about the buyer's own store,
       // so it applies to that parcel on its own value.
-      if (locId === city && city === (settings.freeShipCity ?? "abuja") && parcelSub >= (settings.freeShipAbujaOver ?? 100000)) ship = 0;
+      const ship = parcelShip(locId, city, rate, settings, parcelSub);
       return {
         locationId: locId, ...storeLabels(locId, locations),
-        eta: parcelEta(locId, city, locations, settings), ship,
+        eta: parcelEta(locId, city, rate, settings), ship,
         items: parcelLines.map(itemOf), sort: i,
       };
     });

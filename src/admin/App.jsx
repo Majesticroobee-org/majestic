@@ -12,6 +12,7 @@ import { IntegrationsPage } from "./integrations.jsx";
 import { GoLivePage } from "./golive.jsx";
 import { HomePageAdmin } from "./home-page.jsx";
 import { InsightsPage } from "./insights.jsx";
+import { DeliveryPage } from "./delivery.jsx";
 import { catTree, catPath } from "../lib/categories.js";
 
 // The categories the shop was seeded with, kept only as a label of last resort:
@@ -48,6 +49,7 @@ const PAGES = [
   { id: "dash", label: "Dashboard" },
   { id: "insights", label: "Insights" },
   { id: "inv", label: "Inventory" },
+  { id: "delivery", label: "Delivery" },
   { id: "cat", label: "Products" },
   { id: "home", label: "Home page" },
   { id: "collections", label: "Collections" },
@@ -425,6 +427,7 @@ export default function App() {
 
         {activePage === "dash" && <Dashboard ctx={ctx} />}
         {activePage === "inv" && <Inventory ctx={ctx} />}
+        {activePage === "delivery" && <DeliveryPage ctx={ctx} />}
         {activePage === "cat" && <Catalogue ctx={ctx} />}
         {activePage === "collections" && <CollectionsPage ctx={ctx} />}
         {activePage === "categories" && <CategoriesPage ctx={ctx} />}
